@@ -1,0 +1,14 @@
+{
+  "id": "visual-experience",
+  "name": "视觉与体验",
+  "enabled": true,
+  "order": 40,
+  "color": "#d43d74",
+  "profile": "game-tech-daily",
+  "min_score": 7.0,
+  "cadences": {
+    "daily": ["daily", "x_watch"],
+    "weekly": ["weekly"],
+    "reserve": ["reserve"]
+  }
+}

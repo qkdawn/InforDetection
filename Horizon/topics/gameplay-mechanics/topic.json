@@ -1,0 +1,14 @@
+{
+  "id": "gameplay-mechanics",
+  "name": "玩法与机制",
+  "enabled": true,
+  "order": 10,
+  "color": "#e84a3c",
+  "profile": "game-tech-daily",
+  "min_score": 7.0,
+  "cadences": {
+    "daily": ["daily", "x_watch"],
+    "weekly": ["weekly"],
+    "reserve": ["reserve"]
+  }
+}

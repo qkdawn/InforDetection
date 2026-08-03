@@ -1,0 +1,14 @@
+{
+  "id": "narrative-culture",
+  "name": "叙事与文化",
+  "enabled": true,
+  "order": 30,
+  "color": "#32835c",
+  "profile": "game-tech-daily",
+  "min_score": 7.0,
+  "cadences": {
+    "daily": ["daily", "x_watch"],
+    "weekly": ["weekly"],
+    "reserve": ["reserve"]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "production-tech",
+  "name": "技术与制作方法",
+  "enabled": true,
+  "order": 60,
+  "color": "#ba6b16",
+  "profile": "game-tech-daily",
+  "min_score": 7.0,
+  "cadences": {
+    "daily": ["daily", "x_watch"],
+    "weekly": ["weekly"],
+    "reserve": ["reserve"]
+  }
+}

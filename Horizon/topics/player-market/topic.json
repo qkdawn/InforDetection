@@ -1,0 +1,14 @@
+{
+  "id": "player-market",
+  "name": "玩家行为与市场",
+  "enabled": true,
+  "order": 50,
+  "color": "#6d5bd0",
+  "profile": "game-tech-daily",
+  "min_score": 7.0,
+  "cadences": {
+    "daily": ["daily", "x_watch"],
+    "weekly": ["weekly"],
+    "reserve": ["reserve"]
+  }
+}

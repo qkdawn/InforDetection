@@ -1,0 +1,202 @@
+{
+  "id": "GTDaily20260801A",
+  "name": "游戏创意雷达（Horizon）",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f2303d96-1e19-4e32-8e10-15c1b8323231",
+      "name": "手动运行 Reserve",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-900, 40]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "f19c9354-f9f4-4a38-a2a7-22030521bb41",
+      "name": "每天 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-900, 180]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [0],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "ef34a4de-e3d3-48d3-a04d-9b84d57f8328",
+      "name": "每周日 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-900, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { cadence: 'reserve' } }];"
+      },
+      "id": "fd07efbf-20d0-4dcf-8079-4c4b8e84b6ef",
+      "name": "设置 Reserve",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { cadence: 'daily' } }];"
+      },
+      "id": "de27b080-fc36-448f-bba7-fdfd77b9eb39",
+      "name": "设置 Daily",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { cadence: 'weekly' } }];"
+      },
+      "id": "78c17995-77bd-4937-8ad2-92334998a887",
+      "name": "设置 Weekly",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-680, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/fetch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ cadence: $json.cadence }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "c56df8b8-6f1b-4e58-8888-10f1608250bf",
+      "name": "抓取本周期全部来源",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-400, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "734633dc-9f49-4eaa-a1a1-76073c70beee",
+      "name": "按内容归类并评分",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/filter",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, topic_dedup: true }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "b1f029d8-fb1a-42cc-b457-b1d176525601",
+      "name": "板块内筛选去重",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [160, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/enrich",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, max_items: 2000 }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "fb1ea930-761f-451f-9cd8-098102e424bb",
+      "name": "生成创意分析",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, max_cards: 12 }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "14a2e85b-150e-4fd2-aad6-9b8f95ca8df3",
+      "name": "生成创意雷达报告",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 180]
+    }
+  ],
+  "connections": {
+    "手动运行 Reserve": {"main": [[{"node": "设置 Reserve", "type": "main", "index": 0}]]},
+    "每天 09:00": {"main": [[{"node": "设置 Daily", "type": "main", "index": 0}]]},
+    "每周日 10:00": {"main": [[{"node": "设置 Weekly", "type": "main", "index": 0}]]},
+    "设置 Reserve": {"main": [[{"node": "抓取本周期全部来源", "type": "main", "index": 0}]]},
+    "设置 Daily": {"main": [[{"node": "抓取本周期全部来源", "type": "main", "index": 0}]]},
+    "设置 Weekly": {"main": [[{"node": "抓取本周期全部来源", "type": "main", "index": 0}]]},
+    "抓取本周期全部来源": {"main": [[{"node": "按内容归类并评分", "type": "main", "index": 0}]]},
+    "按内容归类并评分": {"main": [[{"node": "板块内筛选去重", "type": "main", "index": 0}]]},
+    "板块内筛选去重": {"main": [[{"node": "生成创意分析", "type": "main", "index": 0}]]},
+    "生成创意分析": {"main": [[{"node": "生成创意雷达报告", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai"
+  },
+  "meta": {"templateCredsSetupCompleted": true},
+  "tags": []
+}

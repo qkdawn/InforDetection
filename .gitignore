@@ -1,0 +1,37 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runtime data and generated output
+output/
+logs/
+.tmp/
+.codex-spreadsheet-audit/
+Horizon/data/config.json
+Horizon/data/mcp-runs/
+Horizon/data/summaries/
+Horizon/data/seen.json
+Horizon/data/seen-items.sqlite*
+Horizon/data/subscribers.json
+Horizon/data/mcp.secrets.json
+Horizon/data/mcp-secrets.json
+Horizon/data/x_cookies_*.json
+Horizon/data/config.*backup*.json
+Horizon/data/config.local-test.json
+Horizon/docs/_posts/
+
+# Python and test caches
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+Horizon/.venv/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,39 @@
+{
+  "id": "game-tech-daily",
+  "name": "Game Ideas Radar",
+  "display_names": {
+    "zh": "游戏创意雷达"
+  },
+  "match": "match.md",
+  "analysis": "analysis.md",
+  "filter": {
+    "enabled": true,
+    "threshold": 7.0
+  },
+  "content": {
+    "analysis_max_chars": 12000,
+    "enrichment_max_chars": 18000,
+    "sampling": "head-middle-tail"
+  },
+  "enrichment": {
+    "prompt": "enrichment.md",
+    "blocks": [
+      {
+        "id": "what_happened",
+        "type": "section",
+        "tools": [],
+        "primary": true
+      },
+      {
+        "id": "fresh_relationship",
+        "type": "section",
+        "tools": []
+      },
+      {
+        "id": "game_question",
+        "type": "section",
+        "tools": []
+      }
+    ]
+  }
+}
