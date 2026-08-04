@@ -14,6 +14,8 @@ from zoneinfo import ZoneInfo
 import httpx
 from bs4 import BeautifulSoup
 
+from .image_generation import generate_concept_images
+
 
 CONTENT_TOPIC_DEFINITIONS = (
     ("gameplay-mechanics", "玩法与机制", "#e84a3c"),
@@ -288,35 +290,61 @@ def _base_css(accent: str) -> str:
     html, body {{ margin: 0; width: 1080px; height: 1440px; overflow: hidden; }}
     body {{
       font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-      color: #171717; background: #f6f5f1; letter-spacing: 0;
+      color: #f2f1e9; background: #0d1210; letter-spacing: 0;
       -webkit-font-smoothing: antialiased;
     }}
-    .page {{ position: relative; width: 1080px; height: 1440px; padding: 72px 76px 62px; overflow: hidden; }}
-    .page::before {{ content: ""; position: absolute; inset: 0 0 auto 0; height: 14px; background: {accent}; }}
-    .grid {{ position: absolute; inset: 0; pointer-events: none; opacity: .26;
-      background-image: linear-gradient(#d8d7d2 1px, transparent 1px), linear-gradient(90deg, #d8d7d2 1px, transparent 1px);
-      background-size: 72px 72px; mask-image: linear-gradient(to bottom, #000, transparent 62%); }}
-    .content {{ position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; }}
-    .top {{ display: flex; align-items: center; justify-content: space-between; font-size: 22px; font-weight: 700; color: #444; }}
-    .brand {{ display: flex; align-items: center; gap: 14px; }}
-    .mark {{ width: 18px; height: 18px; background: {accent}; }}
-    .index {{ font-variant-numeric: tabular-nums; }}
+    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: #0d1210; }}
+    .content {{ position: relative; z-index: 1; height: 100%; }}
+    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: rgba(8, 12, 10, .92); border-bottom: 3px solid {accent}; font: 700 17px "Noto Sans Mono CJK SC", monospace; }}
+    .brand {{ display: flex; align-items: baseline; gap: 10px; }}
+    .brand strong {{ color: {accent}; font-size: 20px; }}
+    .brand b {{ color: #7f8b86; }}
+    .meta {{ display: flex; align-items: center; gap: 18px; font-variant-numeric: tabular-nums; }}
+    .score {{ padding: 8px 11px; background: {accent}; color: #0d1210; font-size: 18px; }}
     h1, h2, h3, p {{ margin: 0; }}
-    .eyebrow {{ margin-top: 74px; color: {accent}; font-size: 26px; font-weight: 800; }}
-    .title {{ margin-top: 22px; font-size: 72px; line-height: 1.14; font-weight: 900; overflow-wrap: anywhere; }}
-    .title.medium {{ font-size: 62px; }}
-    .title.small {{ font-size: 52px; line-height: 1.18; }}
-    .lede {{ margin-top: 32px; max-width: 860px; font-size: 31px; line-height: 1.62; color: #353535; }}
-    .rule {{ width: 100%; height: 2px; background: #202020; margin: 38px 0; }}
-    .metric-row {{ display: grid; grid-template-columns: repeat(3, 1fr); border-top: 2px solid #202020; border-bottom: 2px solid #202020; }}
-    .metric {{ min-height: 144px; padding: 24px 20px 20px 0; }}
-    .metric + .metric {{ border-left: 1px solid #b8b8b4; padding-left: 28px; }}
-    .metric strong {{ display: block; font-size: 52px; line-height: 1; font-variant-numeric: tabular-nums; }}
-    .metric span {{ display: block; margin-top: 14px; font-size: 21px; color: #5b5b57; }}
-    .footer {{ margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; font-size: 20px; color: #595955; }}
-    .footer .run {{ max-width: 680px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-    .pill-row {{ display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }}
-    .pill {{ border: 1px solid #a7a7a2; padding: 9px 14px; font-size: 19px; background: rgba(255,255,255,.68); }}
+    .hero {{ position: absolute; inset: 0 0 auto; height: 720px; margin: 0; overflow: hidden; background: #16201c; }}
+    .hero img {{ width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.78) contrast(1.08); }}
+    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(8, 12, 10, .04) 30%, rgba(8, 12, 10, .96) 100%); }}
+    .hero.no-image {{ height: 430px; border-bottom: 1px solid #3c4842; }}
+    .hero.no-image::after {{ display: none; }}
+    .hero-title {{ position: absolute; z-index: 2; left: 58px; right: 58px; top: 476px; height: 220px; overflow: hidden; }}
+    .hero-title.no-image {{ top: 186px; }}
+    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: #0d1210; font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
+    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 900 63px/1.17 "Noto Serif CJK SC", serif; color: #f2f1e9; text-shadow: 0 3px 22px rgba(0,0,0,.48); overflow: hidden; overflow-wrap: anywhere; }}
+    .body {{ position: absolute; left: 58px; right: 58px; top: 730px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; }}
+    .body.no-image {{ top: 438px; }}
+    .copy {{ --copy-scale: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
+    .fact {{ display: grid; grid-template-columns: 170px 1fr; gap: 28px; padding: calc(20px * var(--copy-scale)) 0 calc(22px * var(--copy-scale)); border-bottom: 1px solid #3c4842; }}
+    .label {{ color: #91a099; font: 600 16px "Noto Sans Mono CJK SC", monospace; }}
+    .fact p {{ margin: 0; color: #c7cec9; font-size: calc(19px * var(--copy-scale)); line-height: 1.55; }}
+    .relation {{ padding: calc(24px * var(--copy-scale)) 0 calc(28px * var(--copy-scale)) 198px; border-bottom: 1px solid #3c4842; position: relative; }}
+    .relation .label {{ position: absolute; left: 0; top: calc(30px * var(--copy-scale)); }}
+    .relation blockquote {{ margin: 0; font-family: "Noto Serif CJK SC", serif; font-size: calc(29px * var(--copy-scale)); font-weight: 700; line-height: 1.48; color: #f2f1e9; }}
+    .question {{ margin-top: calc(24px * var(--copy-scale)); padding: calc(20px * var(--copy-scale)) 28px calc(22px * var(--copy-scale)); background: {accent}; color: #0d1210; }}
+    .question .label {{ color: #0d1210; opacity: .76; }}
+    .question p {{ margin: calc(10px * var(--copy-scale)) 0 0; font-family: "Noto Serif CJK SC", serif; font-size: calc(22px * var(--copy-scale)); font-weight: 800; line-height: 1.5; }}
+    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: #91a099; font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
+    .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
+    .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
+    .cover-title {{ margin-top: 22px; max-width: 900px; font: 900 78px/1.15 "Noto Serif CJK SC", serif; color: #f2f1e9; }}
+    .cover-lede {{ margin-top: 38px; max-width: 860px; color: #c7cec9; font: 600 30px/1.58 "Noto Serif CJK SC", serif; }}
+    .cover-count {{ margin-top: 90px; display: flex; align-items: flex-end; gap: 24px; }}
+    .cover-count strong {{ color: {accent}; font: 900 178px/.8 "Noto Sans Mono CJK SC", monospace; }}
+    .cover-count span {{ color: #c7cec9; font-size: 24px; line-height: 1.45; padding-bottom: 8px; }}
+    .overview-title, .method-title {{ margin-top: 22px; font: 900 62px/1.15 "Noto Serif CJK SC", serif; color: #f2f1e9; }}
+    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 54px; border-top: 1px solid #3c4842; border-bottom: 1px solid #3c4842; }}
+    .metric {{ min-height: 142px; padding: 24px 20px 20px 0; }}
+    .metric + .metric {{ border-left: 1px solid #3c4842; padding-left: 28px; }}
+    .metric strong {{ display: block; color: {accent}; font: 900 52px/1 "Noto Sans Mono CJK SC", monospace; }}
+    .metric span {{ display: block; margin-top: 14px; color: #91a099; font-size: 19px; }}
+    .overview-list {{ margin-top: 42px; }}
+    .overview-row {{ display: flex; align-items: center; gap: 22px; padding: 18px 0; border-top: 1px solid #3c4842; color: #c7cec9; font-size: 23px; }}
+    .overview-row strong {{ width: 42px; color: {accent}; font: 700 19px "Noto Sans Mono CJK SC", monospace; }}
+    .method-steps {{ margin-top: 58px; border-top: 1px solid #3c4842; }}
+    .method-step {{ display: grid; grid-template-columns: 150px 1fr 90px; gap: 22px; padding: 28px 0; border-bottom: 1px solid #3c4842; align-items: center; color: #c7cec9; font-size: 22px; }}
+    .method-step strong {{ color: #f2f1e9; }}
+    .method-step b {{ color: {accent}; font: 700 30px "Noto Sans Mono CJK SC", monospace; text-align: right; }}
+    .method-lede {{ margin-top: 42px; color: #c7cec9; font: 600 24px/1.58 "Noto Serif CJK SC", serif; }}
     """
 
 
@@ -324,20 +352,59 @@ def _html_page(body: str, *, accent: str, title: str) -> str:
     return (
         '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         f"<title>{html.escape(title)}</title><style>{_base_css(accent)}</style></head>"
-        f"<body>{body}</body></html>"
+        f"<body>{body}{_fit_script()}</body></html>"
     )
 
 
-def _shell(content: str, *, accent: str, index: int, total: int) -> str:
+def _fit_script() -> str:
+    return """
+    <script>
+    (() => {
+      const fitCopy = () => {
+        document.querySelectorAll('[data-fit-copy]').forEach((copy) => {
+          let scale = 1;
+          while (copy.scrollHeight > copy.clientHeight && scale > 0.68) {
+            scale -= 0.03;
+            copy.style.setProperty('--copy-scale', scale.toFixed(2));
+          }
+        });
+        document.querySelectorAll('[data-fit-title]').forEach((title) => {
+          let size = parseFloat(getComputedStyle(title).fontSize);
+          while (title.scrollHeight > title.clientHeight && size > 42) {
+            size -= 2;
+            title.style.fontSize = `${size}px`;
+          }
+        });
+      };
+      fitCopy();
+      requestAnimationFrame(fitCopy);
+    })();
+    </script>
+    """
+
+
+def _shell(
+    content: str,
+    *,
+    accent: str,
+    index: int,
+    total: int,
+    score: float | None = None,
+) -> str:
+    score_html = (
+        f'<strong class="score">{score:.1f} 分</strong>'
+        if score is not None
+        else ""
+    )
     return f"""
-    <main class="page"><div class="grid"></div><div class="content">
-      <div class="top"><div class="brand"><span class="mark"></span>HORIZON / GAME IDEAS</div><div class="index">{index:02d} / {total:02d}</div></div>
+    <main class="page"><div class="content">
+      <div class="top"><div class="brand"><strong>HORIZON</strong><b>/</b><span>游戏创意雷达</span></div><div class="meta"><span>{index:02d} / {total:02d}</span>{score_html}</div></div>
       {content}
     </div></main>
     """
 
 
-def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
+def _legacy_build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
     available_item_pages = max(0, max_cards - 3)
     featured = model["items"][:available_item_pages]
     total = 3 + len(featured)
@@ -459,6 +526,133 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
     return cards
 
 
+def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
+    """Build the unified cinematic report deck used by the daily output."""
+    available_item_pages = max(0, max_cards - 3)
+    featured = model["items"][:available_item_pages]
+    total = 3 + len(featured)
+    date_label = model["date"].replace("-", ".")
+    lead = model["lead"]
+    cards: list[dict[str, str]] = []
+
+    cover_content = f"""
+      <section class="cover-body">
+        <div class="eyebrow">GAME IDEAS RADAR · {html.escape(date_label)}</div>
+        <h1 class="cover-title">{html.escape(model["name"])}</h1>
+        <p class="cover-lede">从真实故事和奇怪现象里，找到值得借用的新鲜关系，以及可以继续追问的游戏问题。</p>
+        <div class="cover-count"><strong>{model["selected"]:02d}</strong><span>条创意线索<br>值得继续追问</span></div>
+        <div class="footer"><span>RSSHub × Horizon × n8n</span><span>{html.escape(date_label)}</span></div>
+      </section>
+    """
+    cards.append(
+        {
+            "slug": "cover",
+            "html": _html_page(
+                _shell(cover_content, accent=model["color"], index=1, total=total),
+                accent=model["color"],
+                title=model["name"],
+            ),
+        }
+    )
+
+    model_list = "".join(
+        f'<div class="overview-row"><strong>{index:02d}</strong><span>{html.escape(_truncate(item["title"], 34))}</span></div>'
+        for index, item in enumerate(model["items"][:5], start=1)
+    )
+    overview_content = f"""
+      <section class="overview-body">
+        <div class="eyebrow">今日总览</div>
+        <h1 class="overview-title">今天发现了<br>哪些创意线索</h1>
+        <div class="metrics">
+          <div class="metric"><strong>{model["fetched"]}</strong><span>候选材料</span></div>
+          <div class="metric"><strong>{model["selected"]}</strong><span>创意线索</span></div>
+          <div class="metric"><strong>{model["source_count"]}</strong><span>灵感来源</span></div>
+        </div>
+        <div class="overview-list">{model_list}</div>
+        <div class="footer"><span>今日首选</span><strong>{html.escape(_truncate((lead or {}).get("title", "暂无创意线索"), 42))}</strong></div>
+      </section>
+    """
+    cards.append(
+        {
+            "slug": "overview",
+            "html": _html_page(
+                _shell(overview_content, accent=model["color"], index=2, total=total),
+                accent=model["color"],
+                title="今日总览",
+            ),
+        }
+    )
+
+    for item_index, item in enumerate(featured, start=1):
+        card_index = 2 + item_index
+        title = html.escape(item["title"])
+        if item["image_url"]:
+            hero = f'<figure class="hero"><img src="{html.escape(item["image_url"], quote=True)}" alt=""></figure>'
+            layout_class = ""
+        else:
+            hero = '<div class="hero no-image" aria-hidden="true"></div>'
+            layout_class = " no-image"
+        item_content = f"""
+          {hero}
+          <section class="hero-title{layout_class}">
+            <div class="eyebrow">{html.escape(item["section"])}</div>
+            <h1 class="title" data-fit-title>{title}</h1>
+          </section>
+          <section class="body{layout_class}">
+            <div class="copy" data-fit-copy>
+              <div class="fact"><div class="label">发生了什么</div><p>{html.escape(item["what_happened"])}</p></div>
+              <div class="relation"><div class="label">真正新鲜的关系是什么</div><blockquote>{html.escape(item["fresh_relationship"])}</blockquote></div>
+              <div class="question"><div class="label">它可能启发哪一类游戏问题</div><p>{html.escape(item["game_question"])}</p></div>
+            </div>
+            <div class="footer"><span>{html.escape(item["source"])} · {item["score"]:.1f} 分</span><span>{html.escape(item["published_at"][:10])}</span></div>
+          </section>
+        """
+        cards.append(
+            {
+                "slug": f"item-{item_index:02d}",
+                "html": _html_page(
+                    _shell(
+                        item_content,
+                        accent=item["color"],
+                        index=card_index,
+                        total=total,
+                        score=item["score"],
+                    ),
+                    accent=item["color"],
+                    title=item["title"],
+                ),
+            }
+        )
+
+    stats = model["stats"]
+    method_index = total
+    method_content = f"""
+      <section class="method-body">
+        <div class="eyebrow">生成方法</div>
+        <h1 class="method-title">一条材料如何<br>变成创意线索</h1>
+        <div class="method-steps">
+          <div class="method-step"><strong>01 抓取</strong><span>RSS / RSSHub 汇集候选信号</span><b>{stats["fetched"]}</b></div>
+          <div class="method-step"><strong>02 评分</strong><span>寻找具体关系、反常和结果</span><b>{stats["scored"]}</b></div>
+          <div class="method-step"><strong>03 筛选</strong><span>留下能形成玩家动作的材料</span><b>{stats["filtered"]}</b></div>
+          <div class="method-step"><strong>04 提炼</strong><span>新鲜关系与开放的游戏问题</span><b>{stats["enriched"]}</b></div>
+        </div>
+        <p class="method-lede">每条创意线索只回答三件事：发生了什么、其中哪段关系真正新鲜、它可以打开哪类游戏问题。图片组展示 {len(featured)} 条，完整 Markdown 保留全部 {model["selected"]} 条。</p>
+        <div class="footer"><span>RSSHub → Horizon → n8n</span><span>{html.escape(date_label)}</span></div>
+      </section>
+    """
+    cards.append(
+        {
+            "slug": "method",
+            "html": _html_page(
+                _shell(method_content, accent=model["color"], index=method_index, total=total),
+                accent=model["color"],
+                title="数据与方法",
+            ),
+        }
+    )
+    return cards
+
+
 async def generate_xiaohongshu_report(
     *,
     run_id: str,
@@ -481,6 +675,10 @@ async def generate_xiaohongshu_report(
 
     markdown_path = report_dir / "report.md"
     markdown_path.write_text(build_markdown(model), encoding="utf-8")
+    featured_count = max(0, max_cards - 3)
+    concept_images = await generate_concept_images(
+        model["items"][:featured_count], report_dir / "concept-images"
+    )
     card_specs = build_card_html(model, max_cards=max_cards)
     endpoint = browserless_url or os.getenv(
         "BROWSERLESS_SCREENSHOT_URL", "http://rsshub-browserless:3000/screenshot"
@@ -513,6 +711,7 @@ async def generate_xiaohongshu_report(
         "cards": rendered,
         "card_count": len(rendered),
         "image_size": "1080x1440",
+        "concept_images": concept_images,
     }
     (report_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"

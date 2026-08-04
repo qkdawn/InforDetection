@@ -229,6 +229,9 @@ class OpenAIClient(AIClient):
         self.temperature = config.temperature
         self.max_tokens = config.max_tokens
         self.provider = config.provider.value
+        self.wire_api = config.wire_api
+        self.reasoning_effort = config.reasoning_effort
+        self.disable_response_storage = config.disable_response_storage
         # Some newer models (e.g. Claude Opus 4.7 on Bedrock Converse) reject
         # `temperature`. We learn this on first 400 and stop sending it.
         self._supports_temperature = True
@@ -272,6 +275,13 @@ class OpenAIClient(AIClient):
         """
         temperature = self.temperature if temperature is None else temperature
         max_tokens = self.max_tokens if max_tokens is None else max_tokens
+
+        if self.wire_api == "responses":
+            return await self._complete_with_responses(
+                system=system,
+                user=user,
+                max_tokens=max_tokens,
+            )
 
         # Clamp temperature for providers that require it
         if self.provider in self._TEMP_CLAMP and temperature <= 0:
@@ -317,6 +327,38 @@ class OpenAIClient(AIClient):
                 output_tokens=getattr(usage, "completion_tokens", 0),
             )
         return response.choices[0].message.content
+
+    async def _complete_with_responses(
+        self,
+        *,
+        system: str,
+        user: str,
+        max_tokens: int,
+    ) -> str:
+        """Generate text through the OpenAI Responses API."""
+        request_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "instructions": system,
+            "input": user,
+            "max_output_tokens": max_tokens,
+            "store": not self.disable_response_storage,
+        }
+        if self.reasoning_effort:
+            request_kwargs["reasoning"] = {"effort": self.reasoning_effort}
+
+        response = await self.client.responses.create(**request_kwargs)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_usage(
+                self.provider,
+                input_tokens=getattr(usage, "input_tokens", 0),
+                output_tokens=getattr(usage, "output_tokens", 0),
+            )
+
+        output_text = getattr(response, "output_text", None)
+        if not output_text:
+            raise ValueError("Responses API returned no output text")
+        return output_text
 
     async def _do_request(
         self,

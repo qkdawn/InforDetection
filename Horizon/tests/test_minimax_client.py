@@ -205,6 +205,39 @@ class TestOpenAIClientComplete:
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs.get("response_format") == {"type": "json_object"}
 
+    def test_responses_api_sends_reasoning_and_disables_storage(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        client = OpenAIClient(_make_config(
+            provider=AIProvider.OPENAI,
+            model="gpt-5.6-sol",
+            api_key_env="OPENAI_API_KEY",
+            wire_api="responses",
+            reasoning_effort="xhigh",
+            disable_response_storage=True,
+        ))
+
+        mock_response = MagicMock()
+        mock_response.output_text = '{"score": 8}'
+        mock_response.usage.input_tokens = 10
+        mock_response.usage.output_tokens = 5
+
+        with patch.object(
+            client.client.responses, "create", new_callable=AsyncMock
+        ) as mock_create:
+            mock_create.return_value = mock_response
+            result = asyncio.run(client.complete(system="test", user="hello"))
+
+        assert result == '{"score": 8}'
+        call_kwargs = mock_create.call_args.kwargs
+        assert call_kwargs == {
+            "model": "gpt-5.6-sol",
+            "instructions": "test",
+            "input": "hello",
+            "max_output_tokens": 4096,
+            "store": False,
+            "reasoning": {"effort": "xhigh"},
+        }
+
 
 class TestTemperatureFallback:
     """Retry-without-temperature path for models that deprecated temperature.

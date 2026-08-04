@@ -33,8 +33,8 @@ def test_game_inspiration_profile_requires_playable_depth():
     ]
     assert "真正新鲜的关系是什么" in profile.enrichment_prompt
     assert "它可能启发哪一类游戏问题" in profile.enrichment_prompt
-    assert "不要把问题写成答案" in profile.enrichment_prompt
-    assert "不替它设计角色" in profile.enrichment_prompt
+    assert "写得清楚、自然、具体" in profile.enrichment_prompt
+    assert "留给设计者继续思考" in profile.enrichment_prompt
     assert "why_playable" not in profile.enrichment_prompt
     assert "player_choices" not in profile.enrichment_prompt
     assert "first_test" not in profile.enrichment_prompt
@@ -53,8 +53,7 @@ def test_game_inspiration_profile_requires_playable_depth():
         "Mention missing information only when it materially caps"
         in profile.analysis_prompt
     )
-    assert "不要为了显得严谨而补写" in profile.enrichment_prompt
-    assert "不在段末追加" in profile.enrichment_prompt
+    assert "不用固定免责声明" in profile.enrichment_prompt
     assert "包括主体、条件、结果和仍不确定之处" not in profile.enrichment_prompt
     assert profile.definition.filter.threshold == 7.0
 

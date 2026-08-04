@@ -154,11 +154,14 @@ class FetchReport:
         return f"All {len(self.outcomes)} attempted sources failed ({failures})"
 
     def to_dict(self) -> Dict[str, object]:
+        successful_count = sum(outcome.status == "success" for outcome in self.outcomes)
+        empty_count = sum(outcome.status == "empty" for outcome in self.outcomes)
         return {
             "status": self.status,
             "attempted": len(self.outcomes),
-            "successful": len(self.outcomes) - self.failed_count,
-            "empty": sum(outcome.status == "empty" for outcome in self.outcomes),
+            "successful": successful_count,
+            "responded": successful_count + empty_count,
+            "empty": empty_count,
             "failed": self.failed_count,
             "item_count": sum(len(outcome.items) for outcome in self.outcomes),
             "sources": [outcome.to_dict() for outcome in self.outcomes],
@@ -505,8 +508,14 @@ class HorizonOrchestrator:
                 tasks.append(self._fetch_with_progress("Google News", gn_scraper, since))
 
             # Fetch all concurrently
-            outcomes = await asyncio.gather(*tasks)
-            self.last_fetch_report = FetchReport(outcomes=list(outcomes))
+            grouped_outcomes = await asyncio.gather(*tasks)
+            outcomes: List[SourceFetchOutcome] = []
+            for group in grouped_outcomes:
+                if isinstance(group, list):
+                    outcomes.extend(group)
+                else:
+                    outcomes.append(group)
+            self.last_fetch_report = FetchReport(outcomes=outcomes)
 
             # Flatten successful and empty outcomes; failures remain in the report.
             all_items: List[ContentItem] = []
@@ -517,7 +526,7 @@ class HorizonOrchestrator:
 
     async def _fetch_with_progress(
         self, name: str, scraper, since: datetime
-    ) -> SourceFetchOutcome:
+    ) -> SourceFetchOutcome | List[SourceFetchOutcome]:
         """Fetch from a scraper with progress indication.
 
         Args:
@@ -526,7 +535,7 @@ class HorizonOrchestrator:
             since: Fetch items after this time
 
         Returns:
-            SourceFetchOutcome: Named fetch result and diagnostics
+            SourceFetchOutcome or per-source outcomes and diagnostics
         """
         self.console.print(f"{self.icons['fetch']} Fetching from {name}...")
         try:
@@ -541,6 +550,20 @@ class HorizonOrchestrator:
             )
 
         self.console.print(f"   Found {len(items)} items from {name}")
+
+        # RSSScraper fetches many independent feeds in one task. Preserve each
+        # feed's status so an empty feed is not reported as a failed request.
+        detailed_results = getattr(scraper, "last_source_outcomes", None)
+        if detailed_results is not None:
+            return [
+                SourceFetchOutcome(
+                    source_name=result.source.name,
+                    status=result.status,
+                    items=result.items,
+                    error=result.error,
+                )
+                for result in detailed_results
+            ]
 
         # Show per-sub-source breakdown when there are multiple sub-sources
         sub_counts: Dict[str, int] = defaultdict(int)

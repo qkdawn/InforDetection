@@ -191,6 +191,11 @@ class AIConfig(BaseModel):
     scoring_model: Optional[str] = None
     base_url: Optional[str] = None
     api_key_env: str
+    wire_api: Literal["chat_completions", "responses"] = "chat_completions"
+    reasoning_effort: Optional[
+        Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+    ] = None
+    disable_response_storage: bool = False
     temperature: float = 0.3
     max_tokens: int = 4096
     throttle_sec: float = 0.0

@@ -68,8 +68,8 @@ def test_content_routing_preserves_account_categories_and_builds_topic_profiles(
     profile = profiles.get("gameplay-mechanics")
     assert "具体规则、行为、约束" in profile.match_prompt
     assert "独特的玩家参与关系" in profile.analysis_prompt
-    assert "不要默认写成资源管理" in profile.enrichment_prompt
-    assert "不要默认写成资源管理" not in profile.analysis_prompt
+    assert "规则、行为、约束与结果" in profile.enrichment_prompt
+    assert "规则、行为、约束与结果" not in profile.analysis_prompt
     assert profile.definition.filter.threshold == 7.0
 
 
