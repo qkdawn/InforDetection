@@ -40,7 +40,7 @@ class FakeService:
 
     def get_run_stage(self, *, run_id: str, stage: str, max_items: int):
         count = self.raw_count if stage == "raw" else self.filtered_count
-        items = [{"id": "item-1"}] if count else []
+        items = [{"id": f"item-{index + 1}"} for index in range(count)]
         return {"run_id": run_id, "stage": stage, "count": count, "items": items}
 
     def get_run_meta(self, run_id: str):
@@ -176,8 +176,17 @@ def test_stage_routes_and_validation():
         "/fetch",
         "/score",
         "/filter",
+        "/research",
         "/enrich",
         "/report",
+        "/feishu",
+        "/psychology-brief",
+        "/psychology/topic",
+        "/psychology/angles",
+        "/psychology/insight",
+        "/psychology/script",
+        "/psychology/review",
+        "/psychology/render",
     }
     with pytest.raises(ValueError, match="run_id"):
         n8n_api._require_run_id({})
@@ -223,3 +232,173 @@ def test_report_stage_generates_an_empty_report(monkeypatch):
 
     assert result["stage"] == "report"
     assert captured["items"] == []
+    assert captured["max_cards"] == 2
+
+
+def test_report_stage_refuses_nonempty_candidates_without_enrichment(monkeypatch):
+    service = FakeService(raw_count=2, filtered_count=1)
+    service.run_store.stages = {"raw", "scored", "filtered", "researched"}
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+
+    with pytest.raises(ValueError, match="no completed enriched stage"):
+        asyncio.run(n8n_api._report_stage({"run_id": "run-1"}))
+
+
+def test_report_stage_uses_empty_enriched_stage_after_all_rejections(monkeypatch):
+    service = FakeService(raw_count=3, filtered_count=2)
+    captured = {}
+
+    def get_run_stage(*, run_id: str, stage: str, max_items: int):
+        if stage == "enriched":
+            return {"run_id": run_id, "stage": stage, "count": 0, "items": []}
+        return FakeService.get_run_stage(
+            service, run_id=run_id, stage=stage, max_items=max_items
+        )
+
+    service.get_run_stage = get_run_stage  # type: ignore[method-assign]
+
+    async def fake_report(**kwargs):
+        captured.update(kwargs)
+        return {"markdown": "/output/report.md", "cards": []}
+
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+    monkeypatch.setattr(n8n_api, "generate_xiaohongshu_report", fake_report)
+
+    result = asyncio.run(n8n_api._report_stage({"run_id": "run-1"}))
+
+    assert result["stage"] == "report"
+    assert captured["items"] == []
+    assert captured["max_cards"] == 2
+
+
+def test_report_stage_defaults_to_one_card_per_item(monkeypatch):
+    service = FakeService(filtered_count=19)
+    captured = {}
+
+    async def fake_report(**kwargs):
+        captured.update(kwargs)
+        return {"markdown": "/output/report.md", "cards": []}
+
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+    monkeypatch.setattr(n8n_api, "generate_xiaohongshu_report", fake_report)
+
+    result = asyncio.run(n8n_api._report_stage({"run_id": "run-1"}))
+
+    assert result["stage"] == "report"
+    assert len(captured["items"]) == 19
+    assert captured["max_cards"] == 21
+
+
+def test_report_stage_does_not_cap_default_image_cards(monkeypatch):
+    service = FakeService(filtered_count=40)
+    captured = {}
+
+    async def fake_report(**kwargs):
+        captured.update(kwargs)
+        return {"markdown": "/output/report.md", "cards": []}
+
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+    monkeypatch.setattr(n8n_api, "generate_xiaohongshu_report", fake_report)
+
+    asyncio.run(n8n_api._report_stage({"run_id": "run-1"}))
+
+    assert len(captured["items"]) == 40
+    assert captured["max_cards"] == 42
+
+
+def test_feishu_stage_delivers_matching_report(monkeypatch):
+    captured = {}
+
+    async def fake_deliver(report):
+        captured.update(report)
+        return {"card_count": 2}
+
+    monkeypatch.setattr(n8n_api, "deliver_report_to_feishu", fake_deliver)
+    report = {"run_id": "run-1", "markdown": "/output/report.md", "cards": []}
+
+    result = asyncio.run(n8n_api._feishu_stage({"run_id": "run-1", "report": report}))
+
+    assert result == {
+        "ok": True,
+        "run_id": "run-1",
+        "stage": "feishu",
+        "delivery": {"card_count": 2},
+    }
+    assert captured == report
+
+
+def test_feishu_stage_rejects_mismatched_run_id():
+    with pytest.raises(ValueError, match="must match"):
+        asyncio.run(
+            n8n_api._feishu_stage({"run_id": "run-1", "report": {"run_id": "run-2"}})
+        )
+
+
+def test_psychology_brief_stage_generates_report_without_delivery(monkeypatch):
+    service = FakeService()
+    service.run_store.create_run = lambda: "run-psych"
+    service.run_store.update_meta = lambda run_id, updates: updates
+    captured = {}
+
+    class FakeGenerator:
+        async def generate(self, topic, context):
+            captured["topic"] = topic
+            captured["context"] = context
+            return {
+                "angles": {"candidates": [{"label": "等待过期"}]},
+                "insight": {"core_thesis": "拖着的不是字，是后续对话"},
+                "script": {
+                    "title": "你不是不想回",
+                    "pages": [{"role": "cover"}, {"role": "turn"}, {"role": "aftertaste"}],
+                },
+                "review": {"verdict": "pass", "notes": ["通过"]},
+            }
+
+    async def fake_report(**kwargs):
+        captured.update(kwargs)
+        return {
+            "run_id": "run-psych",
+            "markdown": "/output/report.md",
+            "cards": ["/output/01.png"],
+            "card_count": 1,
+        }
+
+    async def unexpected_delivery(report):
+        raise AssertionError("delivery must be opt-in")
+
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+    monkeypatch.setattr(n8n_api, "create_psychology_generator", lambda: FakeGenerator())
+    monkeypatch.setattr(n8n_api, "generate_psychology_report", fake_report)
+    monkeypatch.setattr(n8n_api, "deliver_report_to_feishu", unexpected_delivery)
+
+    result = asyncio.run(
+        n8n_api._psychology_brief_stage(
+            {
+                "topic": "为什么越重要的消息越容易拖着不回？",
+                "context": "聊天软件",
+                "deliver_feishu": False,
+            }
+        )
+    )
+
+    assert result["run_id"] == "run-psych"
+    assert result["delivery"] is None
+    assert captured["topic"] == "为什么越重要的消息越容易拖着不回？"
+    assert captured["context"] == "聊天软件"
+    assert captured["run_id"] == "run-psych"
+
+
+@pytest.mark.parametrize(
+    "payload,error",
+    [
+        ({}, "topic must be a string"),
+        ({"topic": "合格选题", "context": 1}, "context must be a string"),
+        (
+            {"topic": "合格选题", "deliver_feishu": "yes"},
+            "deliver_feishu must be a boolean",
+        ),
+    ],
+)
+def test_psychology_brief_stage_validates_input(payload, error):
+    with pytest.raises(ValueError, match=error):
+        asyncio.run(n8n_api._psychology_brief_stage(payload))

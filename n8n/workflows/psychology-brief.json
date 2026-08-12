@@ -1,0 +1,201 @@
+{
+  "id": "PsychologyBrief20260807A",
+  "name": "屏幕里的我们：心理现象科普卡片",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4d63ae97-a742-4b34-9e87-e491971c6e9e",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1240, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { topic: '为什么越重要的消息，越容易拖着不回？', context: '讨论这个问题，并解释背后可能的心理现象、运作机制和适用边界。不要诊断，不引用未经提供的研究数据。' } }];"
+      },
+      "id": "8d9cc758-52c7-474b-a93d-181c5cb6a51c",
+      "name": "设置测试选题",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1020, 120]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "psychology-brief",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "5a3c3e9a-008c-4147-aa21-fefc641db309",
+      "name": "接收选题",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1240, 300],
+      "webhookId": "psychology-brief"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json; const topic = String(body.topic ?? '').trim(); if (topic.length < 4) throw new Error('topic 至少需要 4 个字符'); return [{ json: { topic, context: String(body.context ?? '').trim() } }];"
+      },
+      "id": "9aa0a6de-15bc-4ffe-8f12-b2195449e873",
+      "name": "校验输入",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1020, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/topic",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ topic: $json.topic, context: $json.context }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "16f57fd4-63a0-4185-a52b-041db8ffed54",
+      "name": "保存心理选题",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-760, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/angles",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "d6846c24-33fd-441a-89f1-bd588f3569cc",
+      "name": "生成6种隐藏解释",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/insight",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "5f2b21bf-96fb-44c0-9795-5142f3d06f81",
+      "name": "精选陌生但准确的角度",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-260, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/script",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "cb552e08-f2d3-4eab-9a7d-4c6ef32b0524",
+      "name": "编写4页科普分镜",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/review",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "50b748ee-3808-433a-b245-22151b9feac2",
+      "name": "主编质检并重写",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/psychology/render",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "b0765823-1aa1-48b5-a9a8-5041813c673c",
+      "name": "渲染4页小红书卡片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 210]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/feishu",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, report: $json.report }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "9d20adbb-503e-4dae-bf68-7794c537286b",
+      "name": "推送科普卡片到飞书",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 210]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: $json.ok, run_id: $json.run_id, delivered: true, delivery: $json.delivery } }];"
+      },
+      "id": "f78c60db-51dc-456f-9b98-61a8377accfd",
+      "name": "返回交付结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 210]
+    }
+  ],
+  "connections": {
+    "手动测试": {"main": [[{"node": "设置测试选题", "type": "main", "index": 0}]]},
+    "设置测试选题": {"main": [[{"node": "保存心理选题", "type": "main", "index": 0}]]},
+    "接收选题": {"main": [[{"node": "校验输入", "type": "main", "index": 0}]]},
+    "校验输入": {"main": [[{"node": "保存心理选题", "type": "main", "index": 0}]]},
+    "保存心理选题": {"main": [[{"node": "生成6种隐藏解释", "type": "main", "index": 0}]]},
+    "生成6种隐藏解释": {"main": [[{"node": "精选陌生但准确的角度", "type": "main", "index": 0}]]},
+    "精选陌生但准确的角度": {"main": [[{"node": "编写4页科普分镜", "type": "main", "index": 0}]]},
+    "编写4页科普分镜": {"main": [[{"node": "主编质检并重写", "type": "main", "index": 0}]]},
+    "主编质检并重写": {"main": [[{"node": "渲染4页小红书卡片", "type": "main", "index": 0}]]},
+    "渲染4页小红书卡片": {"main": [[{"node": "推送科普卡片到飞书", "type": "main", "index": 0}]]},
+    "推送科普卡片到飞书": {"main": [[{"node": "返回交付结果", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "timezone": "Asia/Shanghai"},
+  "meta": {"templateCredsSetupCompleted": true},
+  "tags": []
+}

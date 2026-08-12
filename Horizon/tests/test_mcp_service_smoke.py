@@ -655,7 +655,7 @@ def test_enrich_items_reports_partial_failure_truthfully(
     assert result["failed_ids"] == [failed_item.id]
     assert result["meta"]["enrichment_status"] == "partial_failure"
     assert result["meta"]["enriched_count"] == 1
-    assert len(service.run_store.load_items("run-partial", "enriched")) == 2
+    assert len(service.run_store.load_items("run-partial", "enriched")) == 1
 
 
 def test_enrich_items_does_not_create_stage_when_all_items_fail(
@@ -680,6 +680,39 @@ def test_enrich_items_does_not_create_stage_when_all_items_fail(
     assert result["status"] == "failure"
     assert result["artifact"] is None
     assert service.run_store.has_stage("run-all-failed", "enriched") is False
+
+
+def test_enrich_items_saves_empty_stage_when_all_items_are_rejected(
+    tmp_path: Path, monkeypatch
+) -> None:
+    service = HorizonPipelineService(runs_root=tmp_path / "mcp-runs")
+    service.run_store.create_run("run-all-rejected")
+    item = make_item("rejected", score=8.0)
+
+    class RejectingOrchestrator:
+        async def enrich_items(self, items):  # type: ignore[no-untyped-def]
+            return EnrichmentBatchResult(
+                rejections={item.id: "核心关系需要虚构前提"}
+            )
+
+    ctx = SimpleNamespace(runtime=SimpleNamespace(), config=SimpleNamespace())
+    monkeypatch.setattr(service, "_load_stage_items", lambda **kwargs: ([item], ctx))
+    monkeypatch.setattr(
+        service, "_orchestrator", lambda loaded_ctx: RejectingOrchestrator()
+    )
+
+    result = asyncio.run(service.enrich_items("run-all-rejected"))
+
+    assert result["status"] == "success"
+    assert result["enriched"] == 0
+    assert result["rejected"] == 1
+    assert result["failed"] == 0
+    assert service.run_store.load_items("run-all-rejected", "enriched") == []
+    assert result["meta"]["enrichment_rejected_count"] == 1
+    assert result["meta"]["enrichment_rejection_rate"] == 1.0
+    assert result["meta"]["enrichment_rejections"] == {
+        item.id: "核心关系需要虚构前提"
+    }
 
 
 def test_send_webhook_reports_delivery_failure_truthfully(

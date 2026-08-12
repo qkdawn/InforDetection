@@ -18,12 +18,14 @@ STAGES = {
     "raw": "raw_items.json",
     "scored": "scored_items.json",
     "filtered": "filtered_items.json",
+    "researched": "researched_items.json",
     "enriched": "enriched_items.json",
 }
 STAGE_ORDER = tuple(STAGES)
 _META_PREFIXES = {
     "scored": ("scored_", "selected_count"),
     "filtered": ("filtered_", "filter_", "topic_", "balanced_"),
+    "researched": ("research_", "researched_"),
     "enriched": ("enrichment_", "enriched_", "citation_count"),
     "summary": ("summary_",),
 }

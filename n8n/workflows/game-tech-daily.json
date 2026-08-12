@@ -154,7 +154,27 @@
         "options": {"timeout": 2147483647}
       },
       "id": "fb1ea930-761f-451f-9cd8-098102e424bb",
-      "name": "生成创意分析",
+      "name": "游戏设计编辑首次成稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/research",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "6d3bc94d-61b8-44a1-95e2-65a7d1a1b6bc",
+      "name": "补查会改变判断的事实",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [440, 180]
@@ -170,14 +190,34 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ run_id: $json.run_id, max_cards: 12 }) }}",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
         "options": {"timeout": 2147483647}
       },
       "id": "14a2e85b-150e-4fd2-aad6-9b8f95ca8df3",
       "name": "生成创意雷达报告",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 180]
+      "position": [1000, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/feishu",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, report: $json.report }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "66f4756e-15d5-4bd2-937e-00ed49f762dc",
+      "name": "推送报告到飞书",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1280, 180]
     }
   ],
   "connections": {
@@ -189,8 +229,10 @@
     "设置 Weekly": {"main": [[{"node": "抓取本周期全部来源", "type": "main", "index": 0}]]},
     "抓取本周期全部来源": {"main": [[{"node": "按内容归类并评分", "type": "main", "index": 0}]]},
     "按内容归类并评分": {"main": [[{"node": "板块内筛选去重", "type": "main", "index": 0}]]},
-    "板块内筛选去重": {"main": [[{"node": "生成创意分析", "type": "main", "index": 0}]]},
-    "生成创意分析": {"main": [[{"node": "生成创意雷达报告", "type": "main", "index": 0}]]}
+    "板块内筛选去重": {"main": [[{"node": "补查会改变判断的事实", "type": "main", "index": 0}]]},
+    "补查会改变判断的事实": {"main": [[{"node": "游戏设计编辑首次成稿", "type": "main", "index": 0}]]},
+    "游戏设计编辑首次成稿": {"main": [[{"node": "生成创意雷达报告", "type": "main", "index": 0}]]},
+    "生成创意雷达报告": {"main": [[{"node": "推送报告到飞书", "type": "main", "index": 0}]]}
   },
   "active": true,
   "settings": {

@@ -89,6 +89,42 @@ Inspect the current dynamic topic list:
 GET http://localhost:8090/topics?cadence=daily
 ```
 
+## Generate A Single-Topic Psychology Brief
+
+The `屏幕里的我们` pipeline accepts one digital-life topic, generates six competing
+interpretations, selects the least obvious recognizable angle, writes a compact
+editorial script, runs a chief-editor rewrite, and renders a 3-4 page Xiaohongshu
+deck. This is an emotional observation workflow rather than a research or
+psychology-education workflow.
+
+```powershell
+$body = @{
+  topic = "为什么越重要的消息，越容易拖着不回？"
+  context = "讨论这个问题，并解释背后可能的心理现象、运作机制和适用边界。不要诊断。"
+  deliver_feishu = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8090/psychology-brief `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+The response includes the emotional insight, reviewed 3-4 page script, Markdown
+path, and rendered PNG paths. Set `deliver_feishu` to `true` only when the completed
+deck should be sent to the configured Feishu chat.
+
+An importable n8n workflow is available at:
+
+```text
+F:\InforDetection\n8n\workflows\psychology-brief.json
+```
+
+Its webhook accepts the same three fields at `/webhook/psychology-brief`.
+The imported workflow always enables Feishu delivery after all cards render
+successfully; direct API calls can still set `deliver_feishu` to `false` for previews.
+
 ## Run Horizon Directly
 
 Model provider and model name are configured in the local runtime files:

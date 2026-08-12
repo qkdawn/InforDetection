@@ -221,13 +221,33 @@ async def hz_filter_items(
 
 
 @mcp.tool()
-async def hz_enrich_items(
+async def hz_research_items(
     run_id: str,
     source_stage: str = "filtered",
     horizon_path: str | None = None,
     config_path: str | None = None,
 ) -> dict[str, Any]:
-    """Enrich filtered items into the enriched stage."""
+    """Research selected items into the researched stage."""
+
+    return await _run_tool(
+        "hz_research_items",
+        lambda: service.research_items(
+            run_id=run_id,
+            source_stage=source_stage,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        ),
+    )
+
+
+@mcp.tool()
+async def hz_enrich_items(
+    run_id: str,
+    source_stage: str = "researched",
+    horizon_path: str | None = None,
+    config_path: str | None = None,
+) -> dict[str, Any]:
+    """Enrich researched items into the enriched stage."""
 
     return await _run_tool(
         "hz_enrich_items",
@@ -276,7 +296,7 @@ async def hz_run_pipeline(
     topic_dedup: bool = True,
     save_to_horizon_data: bool = False,
 ) -> dict[str, Any]:
-    """Run fetch -> score -> filter -> enrich -> summarize in one call."""
+    """Run fetch -> score -> filter -> research -> enrich -> summarize in one call."""
 
     return await _run_tool(
         "hz_run_pipeline",

@@ -22,6 +22,7 @@ Horizon/data/x_cookies_*.json
 Horizon/data/config.*backup*.json
 Horizon/data/config.local-test.json
 Horizon/docs/_posts/
+Horizon/tmp/
 
 # Python and test caches
 **/__pycache__/

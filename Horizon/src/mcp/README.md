@@ -2,7 +2,7 @@
 
 Horizon includes a built-in MCP server that exposes the native Horizon pipeline as staged tools and read-only resources.
 
-The MCP layer does not reimplement Horizon business logic. It reuses the existing fetch, score, filter, enrich, and summarize modules from the main codebase.
+The MCP layer does not reimplement Horizon business logic. It reuses the existing fetch, score, filter, research, enrich, and summarize modules from the main codebase.
 
 ## Tools
 
@@ -12,9 +12,10 @@ The MCP layer does not reimplement Horizon business logic. It reuses the existin
 | `hz_fetch_items` | Fetch and deduplicate content into the `raw` stage |
 | `hz_score_items` | Score items from a stage into `scored` |
 | `hz_filter_items` | Filter scored items into `filtered` |
-| `hz_enrich_items` | Enrich filtered items into `enriched` |
+| `hz_research_items` | Research selected items into `researched` |
+| `hz_enrich_items` | Enrich researched items into `enriched` |
 | `hz_generate_summary` | Generate markdown from a stage |
-| `hz_run_pipeline` | Run fetch -> score -> filter -> enrich -> summarize |
+| `hz_run_pipeline` | Run fetch -> score -> filter -> research -> enrich -> summarize |
 | `hz_list_runs` | List recent run artifacts |
 | `hz_get_run_meta` | Read metadata for a run |
 | `hz_get_run_stage` | Read items from a run stage |
@@ -48,6 +49,7 @@ Each run writes artifacts under `data/mcp-runs/<run_id>/`:
 - `raw_items.json`
 - `scored_items.json`
 - `filtered_items.json`
+- `researched_items.json`
 - `enriched_items.json`
 - `summary-<lang>.md`
 

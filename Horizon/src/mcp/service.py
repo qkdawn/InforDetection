@@ -159,7 +159,7 @@ class HorizonPipelineService:
         for run in runs:
             run_id = run["run_id"]
             stages = {}
-            for stage in ("raw", "scored", "filtered", "enriched"):
+            for stage in ("raw", "scored", "filtered", "researched", "enriched"):
                 stages[stage] = self.run_store.has_stage(run_id, stage)
             items.append(
                 {
@@ -672,28 +672,37 @@ class HorizonPipelineService:
 
         orchestrator = self._orchestrator(ctx)
         enrichment_result = await orchestrator.enrich_items(items)
+        accepted_ids = set(enrichment_result.succeeded_ids)
+        accepted_items = [item for item in items if item.id in accepted_ids]
 
         artifact_path = None
         if enrichment_result.status == "failure":
             self.run_store.invalidate_from(run_id, "enriched")
         else:
             artifact_path = self.run_store.save_items(
-                run_id, "enriched", items_to_dicts(items)
+                run_id, "enriched", items_to_dicts(accepted_items)
             )
 
         citation_count = 0
-        for item in items:
+        for item in accepted_items:
             if item.processing:
                 citation_count += sum(
                     len(artifact.sources)
                     for artifact in item.processing.artifacts.values()
                 )
 
+        rejection_rate = (
+            enrichment_result.rejected_count / len(items) if items else 0.0
+        )
         meta = self.run_store.update_meta(
             run_id,
             {
                 "enrichment_status": enrichment_result.status,
                 "enriched_count": enrichment_result.succeeded_count,
+                "enrichment_rejected_count": enrichment_result.rejected_count,
+                "enrichment_rejected_ids": enrichment_result.rejected_ids,
+                "enrichment_rejections": enrichment_result.rejections,
+                "enrichment_rejection_rate": rejection_rate,
                 "enrichment_failed_count": enrichment_result.failed_count,
                 "enrichment_failed_ids": enrichment_result.failed_ids,
                 "citation_count": citation_count,
@@ -704,9 +713,72 @@ class HorizonPipelineService:
             "run_id": run_id,
             "status": enrichment_result.status,
             "enriched": enrichment_result.succeeded_count,
+            "rejected": enrichment_result.rejected_count,
+            "rejected_ids": enrichment_result.rejected_ids,
+            "rejections": enrichment_result.rejections,
             "failed": enrichment_result.failed_count,
             "failed_ids": enrichment_result.failed_ids,
             "citation_count": citation_count,
+            "artifact": str(artifact_path.resolve()) if artifact_path else None,
+            "meta": meta,
+        }
+
+    async def research_items(
+        self,
+        run_id: str,
+        source_stage: str = "filtered",
+        horizon_path: str | None = None,
+        config_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Research selected items before creative enrichment."""
+        items, ctx = self._load_stage_items(
+            run_id=run_id,
+            stage=source_stage,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        )
+        if not items:
+            raise HorizonMcpError(
+                code="HZ_EMPTY_INPUT", message="No items available for research."
+            )
+
+        orchestrator = self._orchestrator(ctx)
+        research_result = await orchestrator.research_items(items)
+        artifact_path = None
+        if research_result.status == "failure":
+            self.run_store.invalidate_from(run_id, "researched")
+        else:
+            artifact_path = self.run_store.save_items(
+                run_id, "researched", items_to_dicts(items)
+            )
+
+        source_count = sum(
+            len(request.get("results", []))
+            for item in items
+            for request in (
+                item.metadata.get("mechanism_research", {}).get("requests", [])
+                if isinstance(item.metadata.get("mechanism_research"), dict)
+                else []
+            )
+            if isinstance(request, dict)
+        )
+        meta = self.run_store.update_meta(
+            run_id,
+            {
+                "research_status": research_result.status,
+                "researched_count": research_result.succeeded_count,
+                "research_failed_count": research_result.failed_count,
+                "research_failed_ids": research_result.failed_ids,
+                "research_source_count": source_count,
+            },
+        )
+        return {
+            "run_id": run_id,
+            "status": research_result.status,
+            "researched": research_result.succeeded_count,
+            "failed": research_result.failed_count,
+            "failed_ids": research_result.failed_ids,
+            "source_count": source_count,
             "artifact": str(artifact_path.resolve()) if artifact_path else None,
             "meta": meta,
         }
@@ -809,10 +881,25 @@ class HorizonPipelineService:
 
         enrich_result: dict[str, Any] | None = None
         stage_for_summary = "filtered"
+        research_result: dict[str, Any] | None = None
         if enrich and filter_result["kept"] > 0:
+            enrich_source_stage = "filtered"
+            try:
+                has_filtered_stage = self.run_store.has_stage(run_id, "filtered")
+            except FileNotFoundError:
+                has_filtered_stage = False
+            if has_filtered_stage:
+                research_result = await self.research_items(
+                    run_id=run_id,
+                    source_stage="filtered",
+                    horizon_path=horizon_path,
+                    config_path=config_path,
+                )
+                if research_result["status"] != "failure":
+                    enrich_source_stage = "researched"
             enrich_result = await self.enrich_items(
                 run_id=run_id,
-                source_stage="filtered",
+                source_stage=enrich_source_stage,
                 horizon_path=horizon_path,
                 config_path=config_path,
             )
@@ -843,6 +930,7 @@ class HorizonPipelineService:
             "fetch": fetch_result,
             "score": score_result,
             "filter": filter_result,
+            "research": research_result,
             "enrich": enrich_result,
             "summaries": summaries,
             "meta": self.run_store.load_meta(run_id),
@@ -950,7 +1038,7 @@ class HorizonPipelineService:
         )
 
     def _pick_summary_stage(self, run_id: str) -> str:
-        for stage in ("enriched", "filtered", "scored", "raw"):
+        for stage in ("enriched", "researched", "filtered", "scored", "raw"):
             if self.run_store.has_stage(run_id, stage):
                 return stage
         raise HorizonMcpError(
