@@ -145,7 +145,7 @@ def test_card_deck_respects_limit_without_truncating_report_model():
     assert 'class="page directory-page"' in cards[1]["html"]
     assert 'class="page item-page"' in cards[2]["html"]
     assert ".cover-page { background: #f0ebdc" in cards[0]["html"]
-    assert ".item-page { background: #03150f" in cards[2]["html"]
+    assert ".item-page { background: #eee7d5" in cards[2]["html"]
     assert (
         ".cover-count-panel { position: absolute; right: 54px; "
         "top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; "
@@ -248,10 +248,37 @@ def test_item_card_uses_a_warm_paper_background_palette():
     card = build_card_html(model, max_cards=3)[2]["html"]
 
     assert ".item-page { background: #eee7d5" in card
-    assert ".item-page .editorial-title { color: #17382f" in card
-    assert ".item-page .event-strip" in card
+    assert ".editorial-title" in card
+    assert "color: #292620" in card
+    assert ".event-strip {" in card
     assert "background: #e8dfcc" in card
-    assert ".item-page .bottom-board" in card
+    assert ".bottom-board {" in card
+
+
+def test_report_css_contains_no_legacy_dark_green_theme_tokens():
+    model = build_report_model(
+        run_id="run-paper-only-theme",
+        items=[_item("a", 9)],
+        meta={"raw_count": 1},
+    )
+
+    html = "".join(card["html"] for card in build_card_html(model, max_cards=3))
+
+    for token in (
+        "#03150f",
+        "#07140f",
+        "#071b14",
+        "#0b2a20",
+        "#0d1814",
+        "#101512",
+        "#17382f",
+        "#214a3f",
+        "#244c3d",
+        "#315c50",
+        "rgba(3, 21, 15",
+        "rgba(23, 56, 47",
+    ):
+        assert token not in html
 
 
 def test_card_ignores_legacy_composition_image_layer():
@@ -344,7 +371,7 @@ def test_item_art_stays_crisp_in_hero_and_also_colors_the_fallback_atmosphere():
     assert 'class="composition-backdrop is-hero-fallback"' not in card
     assert 'class="editorial-hero-media"' in card
     assert 'class="editorial-hero-copy"' in card
-    assert "rgba(3, 21, 15, 0) 78%" in card
+    assert "rgba(238, 231, 213, 0) 80%" in card
     assert "object-position: right center" in card
 
 

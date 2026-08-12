@@ -186,7 +186,7 @@ def build_cover_prompt(
             (
                 "Visual DNA, not a rigid recipe: authored painterly worldbuilding with tactile "
                 "paper, pigment, ink, or weathered print character; immense spatial depth; a human "
-                "trace may appear for scale; deep forest green, warm ivory, mineral blue, and "
+                "trace may appear for scale; warm ivory paper, charcoal ink, mineral blue, and "
                 "weathered yellow may recur but the image may choose its own dominant climate."
             ),
             (
