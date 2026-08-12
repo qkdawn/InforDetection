@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import json
 import os
 import re
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -46,6 +48,33 @@ CONTENT_TOPIC_DEFINITIONS = (
 PRODUCT_NAME = "游戏创意雷达"
 PRODUCT_COLOR = REPORT_THEME["brand"]
 COVER_ACCENT = REPORT_THEME["cover"]
+TITLE_FONT_FAMILY = "CangEr XiaoWanZi"
+BODY_FONT_FAMILY = "Alibaba Health 2"
+FONT_ASSET_DIR = Path(__file__).parent / "assets" / "fonts"
+EMBEDDED_FONTS = (
+    (TITLE_FONT_FAMILY, FONT_ASSET_DIR / "cang-er-xiao-wan-zi.woff2", 400),
+    (BODY_FONT_FAMILY, FONT_ASSET_DIR / "alibaba-health-2-bold.woff2", 700),
+)
+
+
+@lru_cache(maxsize=None)
+def _font_data_uri(path: Path) -> str:
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:font/woff2;base64,{encoded}"
+
+
+@lru_cache(maxsize=1)
+def _embedded_font_faces() -> str:
+    return "\n".join(
+        f'''@font-face {{
+      font-family: "{family}";
+      src: url("{_font_data_uri(path)}") format("woff2");
+      font-style: normal;
+      font-weight: {weight};
+      font-display: block;
+    }}'''
+        for family, path, weight in EMBEDDED_FONTS
+    )
 
 
 def _plain_text(value: Any) -> str:
@@ -367,6 +396,7 @@ def build_markdown(model: dict[str, Any]) -> str:
 
 def _base_css(accent: str) -> str:
     return f"""
+    {_embedded_font_faces()}
     :root {{
       --paper: {REPORT_THEME["paper"]};
       --paper-soft: {REPORT_THEME["paper_soft"]};
@@ -380,11 +410,15 @@ def _base_css(accent: str) -> str:
       --moss: {REPORT_THEME["moss"]};
       --ink-purple: {REPORT_THEME["ink_purple"]};
       --brass: {REPORT_THEME["brass"]};
+      --font-display: "{TITLE_FONT_FAMILY}", "Microsoft YaHei UI", sans-serif;
+      --font-body: "{BODY_FONT_FAMILY}", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+      --font-ui: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      --font-mono: "Noto Sans Mono CJK SC", monospace;
     }}
     * {{ box-sizing: border-box; }}
     html, body {{ margin: 0; width: 1080px; height: 1440px; overflow: hidden; }}
     body {{
-      font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
+      font-family: var(--font-body); font-weight: 700;
       color: var(--ink); background: var(--paper); letter-spacing: 0;
       -webkit-font-smoothing: antialiased;
     }}
@@ -394,7 +428,7 @@ def _base_css(accent: str) -> str:
     .cover-page::before {{ display: none; }}
     .directory-page::before {{ top: 500px; background: var(--paper-soft); border-top: 1px solid var(--line); }}
     .content {{ position: relative; z-index: 1; height: 100%; }}
-    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--paper) 92%, transparent); border-bottom: 3px solid {accent}; color: var(--ink); font: 700 17px "Noto Sans Mono CJK SC", monospace; backdrop-filter: blur(14px); }}
+    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--paper) 92%, transparent); border-bottom: 3px solid {accent}; color: var(--ink); font: 700 17px var(--font-mono); backdrop-filter: blur(14px); }}
     .brand {{ display: flex; align-items: baseline; gap: 10px; }}
     .brand strong {{ color: {accent}; font-size: 20px; }}
     .brand b {{ color: var(--muted); }}
@@ -414,13 +448,13 @@ def _base_css(accent: str) -> str:
     .hero.with-mechanism {{ height: 418px; }}
     .hero-title.with-mechanism {{ top: 286px; }}
     .body.with-mechanism {{ top: 510px; }}
-    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: var(--ink); font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
-    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 700 62px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; color: var(--ink); text-shadow: 0 2px 18px color-mix(in srgb, var(--paper) 72%, transparent); overflow: hidden; overflow-wrap: anywhere; }}
+    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: var(--ink); font: 800 19px var(--font-mono); }}
+    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 400 62px/1.2 var(--font-display); color: var(--ink); text-shadow: 0 2px 18px color-mix(in srgb, var(--paper) 72%, transparent); overflow: hidden; overflow-wrap: anywhere; }}
     .body {{ position: absolute; left: 58px; right: 58px; top: 670px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; border-top: 1px solid rgba(74, 65, 53, .18); box-shadow: inset 0 28px 46px rgba(67, 52, 34, .08); }}
     .body.no-image {{ top: 438px; }}
     .copy {{ --copy-scale: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
     .fact {{ margin-top: 14px; padding: calc(22px * var(--copy-scale)) 24px calc(24px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
-    .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: var(--muted); font: 700 15px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; letter-spacing: .04em; }}
+    .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: var(--muted); font: 700 15px/1.2 var(--font-ui); letter-spacing: .04em; }}
     .fact p {{ margin: 0; color: var(--ink); font-size: calc(23px * var(--copy-scale)); line-height: 1.58; }}
     .relation {{ margin-top: 12px; padding: calc(22px * var(--copy-scale)) 24px calc(26px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); position: relative; background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
     .relation .label {{ position: static; }}
@@ -431,10 +465,10 @@ def _base_css(accent: str) -> str:
     .mechanism-visual {{ height: calc(178px * var(--copy-scale)); margin: 0 0 calc(15px * var(--copy-scale)); overflow: hidden; background: #e8e0cf; border-top: 3px solid {accent}; box-shadow: 0 10px 24px rgba(67, 52, 34, .12); }}
     .mechanism-visual img {{ width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; filter: saturate(.88) contrast(1.04); }}
     .mechanism-caption {{ margin: calc(-5px * var(--copy-scale)) 0 calc(14px * var(--copy-scale)); color: var(--muted); font-size: calc(15px * var(--copy-scale)); font-weight: 600; line-height: 1.35; }}
-    .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; font-size: calc(29px * var(--copy-scale)); font-weight: 600; line-height: 1.44; color: var(--ink); }}
+    .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: var(--font-body); font-size: calc(29px * var(--copy-scale)); font-weight: 700; line-height: 1.44; color: var(--ink); }}
     .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: var(--paper-soft); box-shadow: 0 10px 24px rgba(67, 52, 34, .12), inset 0 1px rgba(250, 246, 236, .7); }}
     .systems-question .label {{ margin-bottom: calc(9px * var(--copy-scale)); color: {accent}; font-size: calc(14px * var(--copy-scale)); }}
-    .systems-question p {{ color: var(--ink); font: 700 calc(20px * var(--copy-scale))/1.5 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
+    .systems-question p {{ color: var(--ink); font: 700 calc(20px * var(--copy-scale))/1.5 var(--font-body); }}
     .copy.has-mechanism .fact {{ padding-top: calc(15px * var(--copy-scale)); padding-bottom: calc(17px * var(--copy-scale)); }}
     .copy.has-mechanism .relation {{ padding-top: calc(17px * var(--copy-scale)); padding-bottom: calc(19px * var(--copy-scale)); }}
     .item-page {{ background: var(--paper); color: var(--ink); }}
@@ -447,7 +481,7 @@ def _base_css(accent: str) -> str:
     .editorial-hero-copy {{ position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 55%; min-width: 0; padding: 46px 34px 28px 8px; }}
     .editorial-tags {{ display: flex; gap: 14px; align-items: center; min-height: 36px; overflow: hidden; }}
     .editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {accent}; border-radius: 3px; color: {accent}; font-size: 16px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-    .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: var(--ink); font: 900 60px/1.12 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; text-wrap: balance; text-shadow: none; }}
+    .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: var(--ink); font: 400 60px/1.12 var(--font-display); text-wrap: balance; text-shadow: none; }}
     .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid color-mix(in srgb, var(--brand) 62%, transparent); color: var(--muted); font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
     .editorial-deck::before {{ content: ""; position: absolute; left: 0; top: -2px; width: 42px; height: 3px; background: {accent}; }}
     .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: #ddd3bc; }}
@@ -458,23 +492,23 @@ def _base_css(accent: str) -> str:
     .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
-    .agent-lead h2 {{ color: var(--ink); font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
-    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 500 calc(17px * var(--copy-scale))/1.58 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
-    .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; overflow: hidden; }}
+    .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
+    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
+    .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; display: flex; align-items: center; overflow: hidden; }}
     .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
-    .section-index strong {{ color: {accent}; font: 800 48px/1 "Noto Sans Mono CJK SC", monospace; }}
+    .section-index strong {{ color: {accent}; font: 800 48px/1 var(--font-mono); }}
     .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
     .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 14px; line-height: 1.25; white-space: nowrap; }}
-    .section-index span {{ color: var(--muted); font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
+    .section-index span {{ color: var(--muted); font: 500 11px/1.55 var(--font-mono); text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
     .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 4px; background: var(--paper-soft); }}
     .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 100%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
     .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
-    .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 800 25px/1.4 "Noto Serif CJK SC", serif; text-align: center; }}
+    .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 700 25px/1.4 var(--font-body); text-align: center; }}
     .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 976px; height: 360px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .design-panel, .question-panel {{ display: grid; grid-template-columns: 108px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }}
     .question-panel {{ border-left: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
@@ -483,11 +517,11 @@ def _base_css(accent: str) -> str:
     .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
     .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(22px * var(--copy-scale)); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 800 calc(22px * var(--copy-scale))/1.32 "Noto Serif CJK SC", serif; }}
-    .panel-body {{ color: var(--muted); font: 500 calc(17px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
-    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 700 calc(22px * var(--copy-scale))/1.32 var(--font-body); }}
+    .panel-body {{ color: var(--muted); font: 700 calc(17px * var(--copy-scale))/1.62 var(--font-body); }}
+    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 14px var(--font-mono); }}
     .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 65%, transparent), color-mix(in srgb, var(--ink) 24%, transparent)); }}
-    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px var(--font-mono); }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
     .cover-page {{ background: var(--paper); color: var(--ink); }}
@@ -495,7 +529,7 @@ def _base_css(accent: str) -> str:
     .cover-page .brand {{ gap: 18px; }}
     .cover-page .brand strong {{ color: var(--brand); font-size: 25px; }}
     .cover-page .brand b {{ display: none; }}
-    .cover-page .brand span {{ color: var(--muted); font: 800 17px "Noto Sans CJK SC", sans-serif; }}
+    .cover-page .brand span {{ color: var(--muted); font: 800 17px var(--font-ui); }}
     .cover-page .meta {{ color: var(--ink); font-size: 16px; }}
     .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: var(--paper-soft); }}
     .cover-art img {{ width: 100%; height: 100%; object-fit: cover; object-position: 50% 52%; display: block; filter: saturate(.84) contrast(1.04); }}
@@ -503,62 +537,62 @@ def _base_css(accent: str) -> str:
     .cover-art.no-image {{ background: linear-gradient(160deg, var(--paper) 0 34%, var(--paper-soft) 68%, #c9bda6 100%); }}
     .cover-art.no-image::after {{ display: none; }}
     .cover-poster-body {{ position: absolute; z-index: 2; inset: 0; }}
-    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: var(--ink); font: 900 86px/.96 "Noto Serif CJK SC", serif; }}
+    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: var(--ink); font: 400 86px/.96 var(--font-display); }}
     .cover-headline span {{ display: block; }}
     .cover-headline span + span {{ margin-top: 7px; }}
-    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: var(--ink); font: 800 14px "Noto Sans Mono CJK SC", monospace; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
+    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: var(--ink); font: 800 14px var(--font-mono); writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
     .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: var(--ink); border-top: 9px solid var(--ink); }}
-    .cover-count-panel strong {{ display: block; font: 900 166px/.72 "Noto Sans Mono CJK SC", monospace; font-variant-numeric: tabular-nums; }}
-    .cover-count-panel span {{ display: block; margin-top: 33px; font: 900 27px/1.14 "Noto Serif CJK SC", serif; }}
+    .cover-count-panel strong {{ display: block; font: 900 166px/.72 var(--font-mono); font-variant-numeric: tabular-nums; }}
+    .cover-count-panel span {{ display: block; margin-top: 33px; font: 700 27px/1.14 var(--font-body); }}
     .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: var(--ink); background: var(--paper-soft); border-top: 8px solid var(--cover); }}
-    .cover-summary p {{ max-width: 900px; font: 700 25px/1.48 "Noto Serif CJK SC", serif; }}
-    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font: 800 15px "Noto Sans Mono CJK SC", monospace; }}
+    .cover-summary p {{ max-width: 900px; font: 700 25px/1.48 var(--font-body); }}
+    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font: 800 15px var(--font-mono); }}
     .cover-taxonomy span:nth-child(2) {{ text-align: center; }}
     .cover-taxonomy span:last-child {{ text-align: right; }}
     .directory-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
-    .directory-title {{ margin-top: 22px; color: var(--ink); font: 900 66px/1.08 "Noto Serif CJK SC", serif; }}
-    .directory-lede {{ margin-top: 16px; color: var(--muted); font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .directory-title {{ margin-top: 22px; color: var(--ink); font: 400 66px/1.08 var(--font-display); }}
+    .directory-lede {{ margin-top: 16px; color: var(--muted); font: 700 21px/1.45 var(--font-body); }}
     .directory-body .metrics {{ margin-top: 32px; }}
     .directory-body .metric {{ min-height: 112px; padding-top: 18px; }}
     .directory-body .metric strong {{ font-size: 43px; }}
     .directory-body .metric span {{ margin-top: 10px; font-size: 17px; }}
     .cover-summary-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
-    .cover-summary-title {{ margin-top: 18px; font: 900 58px/1.12 "Noto Serif CJK SC", serif; color: var(--ink); }}
-    .cover-summary-lede {{ margin-top: 16px; color: var(--muted); font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .cover-summary-title {{ margin-top: 18px; font: 400 58px/1.12 var(--font-display); color: var(--ink); }}
+    .cover-summary-lede {{ margin-top: 16px; color: var(--muted); font: 700 21px/1.45 var(--font-body); }}
     .cover-summary-body .metrics {{ margin-top: 30px; }}
     .cover-summary-body .metric {{ min-height: 112px; padding-top: 18px; }}
     .cover-summary-body .metric strong {{ font-size: 43px; }}
     .cover-summary-body .metric span {{ margin-top: 10px; font-size: 17px; }}
     .directory-head {{ display: flex; align-items: baseline; justify-content: space-between; margin-top: 28px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }}
-    .directory-head strong {{ font: 800 20px "Noto Serif CJK SC", serif; color: var(--ink); }}
-    .directory-head span {{ color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .directory-head strong {{ font: 700 20px var(--font-body); color: var(--ink); }}
+    .directory-head span {{ color: var(--muted); font: 500 14px var(--font-mono); }}
     .directory-grid {{ display: grid; gap: 0 30px; margin-top: 4px; }}
     .directory-column {{ min-width: 0; }}
     .directory-row {{ display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 58px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 18px; }}
-    .directory-row strong {{ color: {accent}; font: 700 15px "Noto Sans Mono CJK SC", monospace; }}
+    .directory-row strong {{ color: {accent}; font: 700 15px var(--font-mono); }}
     .directory-row span {{ overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }}
     .directory-grid[data-columns="3"] {{ gap: 0 20px; }}
     .directory-grid[data-columns="3"] .directory-row {{ grid-template-columns: 30px minmax(0, 1fr); gap: 7px; min-height: 54px; font-size: 16px; }}
     .directory-grid[data-columns="3"] .directory-row strong {{ font-size: 13px; }}
-    .cover-title {{ margin-top: 22px; max-width: 900px; font: 900 78px/1.15 "Noto Serif CJK SC", serif; color: var(--ink); }}
-    .cover-lede {{ margin-top: 38px; max-width: 860px; color: var(--muted); font: 600 30px/1.58 "Noto Serif CJK SC", serif; }}
+    .cover-title {{ margin-top: 22px; max-width: 900px; font: 400 78px/1.15 var(--font-display); color: var(--ink); }}
+    .cover-lede {{ margin-top: 38px; max-width: 860px; color: var(--muted); font: 700 30px/1.58 var(--font-body); }}
     .cover-count {{ margin-top: 90px; display: flex; align-items: flex-end; gap: 24px; }}
-    .cover-count strong {{ color: {accent}; font: 900 178px/.8 "Noto Sans Mono CJK SC", monospace; }}
+    .cover-count strong {{ color: {accent}; font: 900 178px/.8 var(--font-mono); }}
     .cover-count span {{ color: var(--muted); font-size: 24px; line-height: 1.45; padding-bottom: 8px; }}
-    .overview-title, .method-title {{ margin-top: 22px; font: 900 62px/1.15 "Noto Serif CJK SC", serif; color: var(--ink); }}
+    .overview-title, .method-title {{ margin-top: 22px; font: 400 62px/1.15 var(--font-display); color: var(--ink); }}
     .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 54px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }}
     .metric {{ min-height: 142px; padding: 24px 20px 20px 0; }}
     .metric + .metric {{ border-left: 1px solid var(--line); padding-left: 28px; }}
-    .metric strong {{ display: block; color: {accent}; font: 900 52px/1 "Noto Sans Mono CJK SC", monospace; }}
+    .metric strong {{ display: block; color: {accent}; font: 900 52px/1 var(--font-mono); }}
     .metric span {{ display: block; margin-top: 14px; color: var(--muted); font-size: 19px; }}
     .overview-list {{ margin-top: 42px; }}
     .overview-row {{ display: flex; align-items: center; gap: 22px; padding: 18px 0; border-top: 1px solid var(--line); color: var(--ink); font-size: 23px; }}
-    .overview-row strong {{ width: 42px; color: {accent}; font: 700 19px "Noto Sans Mono CJK SC", monospace; }}
+    .overview-row strong {{ width: 42px; color: {accent}; font: 700 19px var(--font-mono); }}
     .method-steps {{ margin-top: 58px; border-top: 1px solid var(--line); }}
     .method-step {{ display: grid; grid-template-columns: 150px 1fr 90px; gap: 22px; padding: 28px 0; border-bottom: 1px solid var(--line); align-items: center; color: var(--ink); font-size: 22px; }}
     .method-step strong {{ color: var(--ink); }}
-    .method-step b {{ color: {accent}; font: 700 30px "Noto Sans Mono CJK SC", monospace; text-align: right; }}
-    .method-lede {{ margin-top: 42px; color: var(--muted); font: 600 24px/1.58 "Noto Serif CJK SC", serif; }}
+    .method-step b {{ color: {accent}; font: 700 30px var(--font-mono); text-align: right; }}
+    .method-lede {{ margin-top: 42px; color: var(--muted); font: 700 24px/1.58 var(--font-body); }}
     """
 
 

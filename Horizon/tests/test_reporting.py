@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from src.reporting import (
+    BODY_FONT_FAMILY,
     COVER_ACCENT,
     PRODUCT_COLOR,
     REPORT_THEME,
+    TITLE_FONT_FAMILY,
     build_card_html,
     build_markdown,
     build_report_model,
@@ -279,6 +281,43 @@ def test_item_card_body_type_is_readable_at_thumbnail_size():
     assert "calc(17px * var(--copy-scale))/1.58" in card
     assert "calc(17px * var(--copy-scale))/1.62" in card
     assert "size > 42" in card
+
+
+def test_event_copy_is_vertically_centered_beside_its_heading():
+    model = build_report_model(
+        run_id="run-centered-event-copy",
+        items=[_item("event", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert (
+        ".event-body { --copy-scale: 1; height: 178px; padding: 0 30px; "
+        "display: flex; align-items: center; overflow: hidden; }"
+    ) in card
+
+
+def test_report_embeds_reusable_display_and_body_font_roles():
+    model = build_report_model(
+        run_id="run-round-title-font",
+        items=[_item("type", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert f'font-family: "{TITLE_FONT_FAMILY}"' in card
+    assert f'font-family: "{BODY_FONT_FAMILY}"' in card
+    assert card.count("data:font/woff2;base64,") == 2
+    assert f'--font-display: "{TITLE_FONT_FAMILY}"' in card
+    assert f'--font-body: "{BODY_FONT_FAMILY}"' in card
+    assert "font: 400 60px/1.12 var(--font-display)" in card
+    assert (
+        "font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body)"
+        in card
+    )
+    assert "font: 500 14px var(--font-mono)" in card
 
 
 def test_report_css_contains_no_legacy_dark_green_theme_tokens():
