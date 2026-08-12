@@ -21,17 +21,31 @@ from .image_generation import (
 )
 
 
+REPORT_THEME = {
+    "paper": "#F1EADB",
+    "paper_soft": "#E5DAC5",
+    "ink": "#2D2923",
+    "muted": "#6F6659",
+    "line": "#B8AA92",
+    "brand": "#C94F3D",
+    "cover": "#D6B84A",
+    "map_blue": "#55788A",
+    "terracotta": "#A85F48",
+    "moss": "#78806B",
+    "ink_purple": "#75677A",
+    "brass": "#A77A3B",
+}
 CONTENT_TOPIC_DEFINITIONS = (
-    ("gameplay-mechanics", "玩法与机制", "#e84a3c"),
-    ("world-level", "世界与关卡", "#2b6cb0"),
-    ("narrative-culture", "叙事与文化", "#8a5a44"),
-    ("visual-experience", "视觉与体验", "#d43d74"),
-    ("player-market", "玩家行为与市场", "#6d5bd0"),
-    ("production-tech", "技术与制作方法", "#ba6b16"),
+    ("gameplay-mechanics", "玩法与机制", REPORT_THEME["brand"]),
+    ("world-level", "世界与关卡", REPORT_THEME["map_blue"]),
+    ("narrative-culture", "叙事与文化", REPORT_THEME["terracotta"]),
+    ("visual-experience", "视觉与体验", REPORT_THEME["ink_purple"]),
+    ("player-market", "玩家行为与市场", REPORT_THEME["moss"]),
+    ("production-tech", "技术与制作方法", REPORT_THEME["brass"]),
 )
 PRODUCT_NAME = "游戏创意雷达"
-PRODUCT_COLOR = "#e84a3c"
-COVER_ACCENT = "#e9d93e"
+PRODUCT_COLOR = REPORT_THEME["brand"]
+COVER_ACCENT = REPORT_THEME["cover"]
 
 
 def _plain_text(value: Any) -> str:
@@ -100,7 +114,7 @@ def _normalize_item(
         section_name, color = content_sections[content_topic_id]
         section_id = content_topic_id
     else:
-        section_id, section_name, color = "other", "未分类", "#4b5563"
+        section_id, section_name, color = "other", "未分类", REPORT_THEME["muted"]
     score = analysis.get("score")
     try:
         score = float(score)
@@ -184,7 +198,7 @@ def build_report_model(
                 (
                     str(topic.get("id") or ""),
                     str(topic.get("name") or topic.get("id") or "未命名板块"),
-                    str(topic.get("color") or "#4b5563"),
+                    str(topic.get("color") or REPORT_THEME["muted"]),
                     int(topic.get("order") or 100),
                 )
                 for topic in configured_topics
@@ -227,7 +241,7 @@ def build_report_model(
             {
                 "id": "other",
                 "name": "未分类",
-                "color": "#4b5563",
+                "color": REPORT_THEME["muted"],
                 "items": other_items,
             }
         )
@@ -352,189 +366,203 @@ def build_markdown(model: dict[str, Any]) -> str:
 
 def _base_css(accent: str) -> str:
     return f"""
+    :root {{
+      --paper: {REPORT_THEME["paper"]};
+      --paper-soft: {REPORT_THEME["paper_soft"]};
+      --ink: {REPORT_THEME["ink"]};
+      --muted: {REPORT_THEME["muted"]};
+      --line: {REPORT_THEME["line"]};
+      --brand: {REPORT_THEME["brand"]};
+      --cover: {REPORT_THEME["cover"]};
+      --map-blue: {REPORT_THEME["map_blue"]};
+      --terracotta: {REPORT_THEME["terracotta"]};
+      --moss: {REPORT_THEME["moss"]};
+      --ink-purple: {REPORT_THEME["ink_purple"]};
+      --brass: {REPORT_THEME["brass"]};
+    }}
     * {{ box-sizing: border-box; }}
     html, body {{ margin: 0; width: 1080px; height: 1440px; overflow: hidden; }}
     body {{
       font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
-      color: #292620; background: #eee7d5; letter-spacing: 0;
+      color: var(--ink); background: var(--paper); letter-spacing: 0;
       -webkit-font-smoothing: antialiased;
     }}
-    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: #eee7d5; }}
+    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: var(--paper); }}
     .page::before {{ content: ""; position: absolute; z-index: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }}
     .item-page::before {{ display: none; }}
     .cover-page::before {{ display: none; }}
-    .directory-page::before {{ top: 500px; background: #e8dfcc; border-top: 1px solid #b8ad97; }}
+    .directory-page::before {{ top: 500px; background: var(--paper-soft); border-top: 1px solid var(--line); }}
     .content {{ position: relative; z-index: 1; height: 100%; }}
-    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: rgba(238, 231, 213, .92); border-bottom: 3px solid {accent}; color: #292620; font: 700 17px "Noto Sans Mono CJK SC", monospace; backdrop-filter: blur(14px); }}
+    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--paper) 92%, transparent); border-bottom: 3px solid {accent}; color: var(--ink); font: 700 17px "Noto Sans Mono CJK SC", monospace; backdrop-filter: blur(14px); }}
     .brand {{ display: flex; align-items: baseline; gap: 10px; }}
     .brand strong {{ color: {accent}; font-size: 20px; }}
-    .brand b {{ color: #81796b; }}
+    .brand b {{ color: var(--muted); }}
     .meta {{ display: flex; align-items: center; gap: 18px; font-variant-numeric: tabular-nums; }}
-    .score {{ padding: 8px 11px; background: {accent}; color: #292620; font-size: 18px; }}
+    .score {{ padding: 8px 11px; background: {accent}; color: var(--ink); font-size: 18px; }}
     h1, h2, h3, p {{ margin: 0; }}
-    .page-backdrop {{ position: absolute; z-index: 0; inset: 0; overflow: hidden; background: #eee7d5; }}
+    .page-backdrop {{ position: absolute; z-index: 0; inset: 0; overflow: hidden; background: var(--paper); }}
     .page-backdrop img {{ width: 100%; height: 100%; display: block; object-fit: cover; filter: blur(30px) saturate(.58) contrast(.94); transform: scale(1.08); opacity: .18; }}
-    .page-backdrop::after {{ content: ""; position: absolute; inset: 0; background: rgba(238, 231, 213, .78); }}
+    .page-backdrop::after {{ content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 78%, transparent); }}
     .hero {{ position: absolute; inset: 92px 0 auto; height: 558px; margin: 0; overflow: hidden; background: #d8cdb8; }}
     .hero img {{ width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.78) contrast(1.08); }}
-    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(238, 231, 213, .04) 26%, rgba(238, 231, 213, .96) 100%); }}
-    .hero.no-image {{ height: 430px; border-bottom: 1px solid #b8ad97; }}
+    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--paper) 4%, transparent) 26%, color-mix(in srgb, var(--paper) 96%, transparent) 100%); }}
+    .hero.no-image {{ height: 430px; border-bottom: 1px solid var(--line); }}
     .hero.no-image::after {{ display: none; }}
     .hero-title {{ position: absolute; z-index: 2; left: 58px; right: 58px; top: 404px; height: 216px; overflow: hidden; }}
     .hero-title.no-image {{ top: 186px; }}
     .hero.with-mechanism {{ height: 418px; }}
     .hero-title.with-mechanism {{ top: 286px; }}
     .body.with-mechanism {{ top: 510px; }}
-    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: #292620; font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
-    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 700 62px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; color: #292620; text-shadow: 0 2px 18px rgba(238, 231, 213, .72); overflow: hidden; overflow-wrap: anywhere; }}
+    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: var(--ink); font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
+    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 700 62px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; color: var(--ink); text-shadow: 0 2px 18px color-mix(in srgb, var(--paper) 72%, transparent); overflow: hidden; overflow-wrap: anywhere; }}
     .body {{ position: absolute; left: 58px; right: 58px; top: 670px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; border-top: 1px solid rgba(74, 65, 53, .18); box-shadow: inset 0 28px 46px rgba(67, 52, 34, .08); }}
     .body.no-image {{ top: 438px; }}
     .copy {{ --copy-scale: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
     .fact {{ margin-top: 14px; padding: calc(22px * var(--copy-scale)) 24px calc(24px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
-    .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: #756e62; font: 700 15px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; letter-spacing: .04em; }}
-    .fact p {{ margin: 0; color: #37332c; font-size: calc(23px * var(--copy-scale)); line-height: 1.58; }}
+    .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: var(--muted); font: 700 15px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; letter-spacing: .04em; }}
+    .fact p {{ margin: 0; color: var(--ink); font-size: calc(23px * var(--copy-scale)); line-height: 1.58; }}
     .relation {{ margin-top: 12px; padding: calc(22px * var(--copy-scale)) 24px calc(26px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); position: relative; background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
     .relation .label {{ position: static; }}
     .mechanism-flow {{ display: flex; align-items: stretch; gap: 9px; margin: 0 0 calc(17px * var(--copy-scale)); }}
-    .mechanism-node {{ flex: 1 1 0; min-width: 0; min-height: calc(62px * var(--copy-scale)); padding: calc(10px * var(--copy-scale)) 10px; display: flex; align-items: center; justify-content: center; border-top: 3px solid {accent}; background: #ded3be; color: #292620; text-align: center; font-size: calc(17px * var(--copy-scale)); font-weight: 700; line-height: 1.32; overflow-wrap: anywhere; }}
-    .mechanism-node:last-of-type {{ background: {accent}; color: #292620; }}
+    .mechanism-node {{ flex: 1 1 0; min-width: 0; min-height: calc(62px * var(--copy-scale)); padding: calc(10px * var(--copy-scale)) 10px; display: flex; align-items: center; justify-content: center; border-top: 3px solid {accent}; background: var(--paper-soft); color: var(--ink); text-align: center; font-size: calc(17px * var(--copy-scale)); font-weight: 700; line-height: 1.32; overflow-wrap: anywhere; }}
+    .mechanism-node:last-of-type {{ background: {accent}; color: var(--ink); }}
     .mechanism-arrow {{ flex: 0 0 18px; display: flex; align-items: center; justify-content: center; color: {accent}; font-size: calc(24px * var(--copy-scale)); font-weight: 800; }}
     .mechanism-visual {{ height: calc(178px * var(--copy-scale)); margin: 0 0 calc(15px * var(--copy-scale)); overflow: hidden; background: #e8e0cf; border-top: 3px solid {accent}; box-shadow: 0 10px 24px rgba(67, 52, 34, .12); }}
     .mechanism-visual img {{ width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; filter: saturate(.88) contrast(1.04); }}
-    .mechanism-caption {{ margin: calc(-5px * var(--copy-scale)) 0 calc(14px * var(--copy-scale)); color: #756e62; font-size: calc(15px * var(--copy-scale)); font-weight: 600; line-height: 1.35; }}
-    .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; font-size: calc(29px * var(--copy-scale)); font-weight: 600; line-height: 1.44; color: #292620; }}
-    .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: #ddd3be; box-shadow: 0 10px 24px rgba(67, 52, 34, .12), inset 0 1px rgba(250, 246, 236, .7); }}
+    .mechanism-caption {{ margin: calc(-5px * var(--copy-scale)) 0 calc(14px * var(--copy-scale)); color: var(--muted); font-size: calc(15px * var(--copy-scale)); font-weight: 600; line-height: 1.35; }}
+    .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; font-size: calc(29px * var(--copy-scale)); font-weight: 600; line-height: 1.44; color: var(--ink); }}
+    .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: var(--paper-soft); box-shadow: 0 10px 24px rgba(67, 52, 34, .12), inset 0 1px rgba(250, 246, 236, .7); }}
     .systems-question .label {{ margin-bottom: calc(9px * var(--copy-scale)); color: {accent}; font-size: calc(14px * var(--copy-scale)); }}
-    .systems-question p {{ color: #292620; font: 700 calc(20px * var(--copy-scale))/1.5 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
+    .systems-question p {{ color: var(--ink); font: 700 calc(20px * var(--copy-scale))/1.5 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
     .copy.has-mechanism .fact {{ padding-top: calc(15px * var(--copy-scale)); padding-bottom: calc(17px * var(--copy-scale)); }}
     .copy.has-mechanism .relation {{ padding-top: calc(17px * var(--copy-scale)); padding-bottom: calc(19px * var(--copy-scale)); }}
-    .item-page {{ background: #eee7d5; color: #292620; }}
-    .item-page .top {{ min-height: 72px; padding: 0 36px; background: rgba(238, 231, 213, .97); border-bottom: 1px solid {accent}; backdrop-filter: none; }}
+    .item-page {{ background: var(--paper); color: var(--ink); }}
+    .item-page .top {{ min-height: 72px; padding: 0 36px; background: color-mix(in srgb, var(--paper) 97%, transparent); border-bottom: 1px solid {accent}; backdrop-filter: none; }}
     .item-page .brand strong {{ font-size: 18px; }}
-    .item-page .brand span {{ color: #5f584e; font-size: 17px; }}
-    .item-page .meta {{ gap: 16px; color: #5f584e; }}
+    .item-page .brand span {{ color: var(--muted); font-size: 17px; }}
+    .item-page .meta {{ gap: 16px; color: var(--muted); }}
     .item-page .score {{ padding: 8px 12px; font-size: 17px; }}
     .editorial-hero {{ position: absolute; left: 36px; right: 36px; top: 88px; height: 350px; overflow: hidden; background: #e5dcc8; border: 1px solid rgba(74, 65, 53, .22); }}
     .editorial-hero-copy {{ position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 55%; min-width: 0; padding: 46px 34px 28px 8px; }}
     .editorial-tags {{ display: flex; gap: 14px; align-items: center; min-height: 36px; overflow: hidden; }}
     .editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {accent}; border-radius: 3px; color: {accent}; font-size: 16px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-    .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: #292620; font: 900 60px/1.12 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; text-wrap: balance; text-shadow: none; }}
-    .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid rgba(232, 74, 60, .62); color: #625b50; font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
+    .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: var(--ink); font: 900 60px/1.12 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; text-wrap: balance; text-shadow: none; }}
+    .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid color-mix(in srgb, var(--brand) 62%, transparent); color: var(--muted); font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
     .editorial-deck::before {{ content: ""; position: absolute; left: 0; top: -2px; width: 42px; height: 3px; background: {accent}; }}
     .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: #ddd3bc; }}
     .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; right: 0; top: 0; width: 64%; height: 100%; display: block; object-fit: contain; object-position: right center; filter: saturate(.84) contrast(1.06) brightness(.82); }}
-    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, #eee7d5 0%, #eee7d5 40%, rgba(238, 231, 213, .97) 47%, rgba(238, 231, 213, .75) 56%, rgba(238, 231, 213, .3) 67%, rgba(238, 231, 213, 0) 80%); }}
-    .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, #eee7d5 76%); }}
-    .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid rgba(74, 65, 53, .22); background: #e8dfcc; overflow: hidden; }}
+    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 40%, color-mix(in srgb, var(--paper) 97%, transparent) 47%, color-mix(in srgb, var(--paper) 75%, transparent) 56%, color-mix(in srgb, var(--paper) 30%, transparent) 67%, transparent 80%); }}
+    .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, var(--paper) 76%); }}
+    .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .insight-symbol {{ position: relative; width: 70px; height: 70px; margin: auto; border: 1px solid rgba(232, 74, 60, .66); border-radius: 50%; }}
     .insight-symbol::before, .insight-symbol::after {{ content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }}
     .insight-symbol::before {{ width: 34px; height: 34px; border: 4px solid {accent}; box-shadow: 0 0 0 7px rgba(232, 74, 60, .12); }}
     .insight-symbol::after {{ width: 8px; height: 8px; background: {accent}; box-shadow: -25px 0 0 -2px {accent}, 25px 0 0 -2px {accent}, 0 -25px 0 -2px {accent}, 0 25px 0 -2px {accent}; }}
-    .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-right: 1px solid rgba(74, 65, 53, .18); }}
+    .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .event-index .insight-symbol {{ margin: 0; }}
     .event-index b {{ color: {accent}; font-size: 15px; line-height: 1; }}
-    .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid rgba(74, 65, 53, .22); }}
-    .agent-lead h2 {{ color: #292620; font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
-    .agent-body {{ margin: 0; color: #4f493f; font: 500 calc(15px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
+    .agent-lead h2 {{ color: var(--ink); font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
+    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 500 calc(15px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; overflow: hidden; }}
-    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid rgba(74, 65, 53, .22); background: #e3dac6; overflow: hidden; }}
+    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
-    .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid rgba(74, 65, 53, .18); }}
+    .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .section-index strong {{ color: {accent}; font: 800 48px/1 "Noto Sans Mono CJK SC", monospace; }}
     .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
     .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 13px; line-height: 1.25; white-space: nowrap; }}
-    .section-index span {{ color: #756e62; font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
+    .section-index span {{ color: var(--muted); font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
-    .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid rgba(74, 65, 53, .2); border-radius: 4px; background: #e8dfcc; }}
+    .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 4px; background: var(--paper-soft); }}
     .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 100%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
     .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
-    .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid rgba(74, 65, 53, .22); color: #292620; background: #e4dbc7; font: 800 25px/1.4 "Noto Serif CJK SC", serif; text-align: center; }}
-    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 976px; height: 360px; display: grid; grid-template-columns: 48% 52%; border: 1px solid rgba(74, 65, 53, .22); background: #e8dfcc; overflow: hidden; }}
+    .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 800 25px/1.4 "Noto Serif CJK SC", serif; text-align: center; }}
+    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 976px; height: 360px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .design-panel, .question-panel {{ display: grid; grid-template-columns: 108px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }}
-    .question-panel {{ border-left: 1px solid rgba(74, 65, 53, .2); }}
+    .question-panel {{ border-left: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
     .design-content, .question-content {{ min-width: 0; padding: 31px 24px 22px; }}
     .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(20px * var(--copy-scale)); overflow: hidden; }}
     .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
     .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(22px * var(--copy-scale)); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: #292620; font: 800 calc(20px * var(--copy-scale))/1.35 "Noto Serif CJK SC", serif; }}
-    .panel-body {{ color: #4f493f; font: 500 calc(15px * var(--copy-scale))/1.68 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
-    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: #756e62; font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
-    .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, rgba(232, 74, 60, .65), rgba(74, 65, 53, .24)); }}
-    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: #756e62; font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 800 calc(20px * var(--copy-scale))/1.35 "Noto Serif CJK SC", serif; }}
+    .panel-body {{ color: var(--muted); font: 500 calc(15px * var(--copy-scale))/1.68 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
+    .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 65%, transparent), color-mix(in srgb, var(--ink) 24%, transparent)); }}
+    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
-    .cover-page {{ background: #f0ebdc; color: #292620; }}
-    .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: #292620; }}
+    .cover-page {{ background: var(--paper); color: var(--ink); }}
+    .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: var(--ink); }}
     .cover-page .brand {{ gap: 18px; }}
-    .cover-page .brand strong {{ color: #e24a35; font-size: 25px; }}
+    .cover-page .brand strong {{ color: var(--brand); font-size: 25px; }}
     .cover-page .brand b {{ display: none; }}
-    .cover-page .brand span {{ color: #625b50; font: 800 17px "Noto Sans CJK SC", sans-serif; }}
-    .cover-page .meta {{ color: #292620; font-size: 16px; }}
-    .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: #ddd3be; }}
+    .cover-page .brand span {{ color: var(--muted); font: 800 17px "Noto Sans CJK SC", sans-serif; }}
+    .cover-page .meta {{ color: var(--ink); font-size: 16px; }}
+    .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: var(--paper-soft); }}
     .cover-art img {{ width: 100%; height: 100%; object-fit: cover; object-position: 50% 52%; display: block; filter: saturate(.84) contrast(1.04); }}
-    .cover-art::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #f0ebdc 0%, rgba(240, 235, 220, .94) 6%, rgba(240, 235, 220, .54) 17%, rgba(240, 235, 220, .08) 31%, rgba(92, 75, 54, .02) 76%, rgba(92, 75, 54, .26) 100%); }}
-    .cover-art.no-image {{ background: linear-gradient(160deg, #f0ebdc 0 34%, #ddd3be 68%, #c9bda6 100%); }}
+    .cover-art::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, var(--paper) 0%, color-mix(in srgb, var(--paper) 94%, transparent) 6%, color-mix(in srgb, var(--paper) 54%, transparent) 17%, color-mix(in srgb, var(--paper) 8%, transparent) 31%, color-mix(in srgb, var(--ink) 2%, transparent) 76%, color-mix(in srgb, var(--ink) 26%, transparent) 100%); }}
+    .cover-art.no-image {{ background: linear-gradient(160deg, var(--paper) 0 34%, var(--paper-soft) 68%, #c9bda6 100%); }}
     .cover-art.no-image::after {{ display: none; }}
     .cover-poster-body {{ position: absolute; z-index: 2; inset: 0; }}
-    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: #292620; font: 900 86px/.96 "Noto Serif CJK SC", serif; }}
+    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: var(--ink); font: 900 86px/.96 "Noto Serif CJK SC", serif; }}
     .cover-headline span {{ display: block; }}
     .cover-headline span + span {{ margin-top: 7px; }}
-    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: #292620; font: 800 14px "Noto Sans Mono CJK SC", monospace; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
-    .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: #292620; border-top: 9px solid #292620; }}
+    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: var(--ink); font: 800 14px "Noto Sans Mono CJK SC", monospace; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
+    .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: var(--ink); border-top: 9px solid var(--ink); }}
     .cover-count-panel strong {{ display: block; font: 900 166px/.72 "Noto Sans Mono CJK SC", monospace; font-variant-numeric: tabular-nums; }}
     .cover-count-panel span {{ display: block; margin-top: 33px; font: 900 27px/1.14 "Noto Serif CJK SC", serif; }}
-    .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: #292620; background: #e2d8c4; border-top: 8px solid #c7b75f; }}
+    .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: var(--ink); background: var(--paper-soft); border-top: 8px solid var(--cover); }}
     .cover-summary p {{ max-width: 900px; font: 700 25px/1.48 "Noto Serif CJK SC", serif; }}
-    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid #a99d88; color: #514b42; font: 800 15px "Noto Sans Mono CJK SC", monospace; }}
+    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font: 800 15px "Noto Sans Mono CJK SC", monospace; }}
     .cover-taxonomy span:nth-child(2) {{ text-align: center; }}
     .cover-taxonomy span:last-child {{ text-align: right; }}
     .directory-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
-    .directory-title {{ margin-top: 22px; color: #292620; font: 900 66px/1.08 "Noto Serif CJK SC", serif; }}
-    .directory-lede {{ margin-top: 16px; color: #625b50; font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .directory-title {{ margin-top: 22px; color: var(--ink); font: 900 66px/1.08 "Noto Serif CJK SC", serif; }}
+    .directory-lede {{ margin-top: 16px; color: var(--muted); font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
     .directory-body .metrics {{ margin-top: 32px; }}
     .directory-body .metric {{ min-height: 112px; padding-top: 18px; }}
     .directory-body .metric strong {{ font-size: 43px; }}
     .directory-body .metric span {{ margin-top: 10px; font-size: 17px; }}
     .cover-summary-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
-    .cover-summary-title {{ margin-top: 18px; font: 900 58px/1.12 "Noto Serif CJK SC", serif; color: #292620; }}
-    .cover-summary-lede {{ margin-top: 16px; color: #625b50; font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .cover-summary-title {{ margin-top: 18px; font: 900 58px/1.12 "Noto Serif CJK SC", serif; color: var(--ink); }}
+    .cover-summary-lede {{ margin-top: 16px; color: var(--muted); font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
     .cover-summary-body .metrics {{ margin-top: 30px; }}
     .cover-summary-body .metric {{ min-height: 112px; padding-top: 18px; }}
     .cover-summary-body .metric strong {{ font-size: 43px; }}
     .cover-summary-body .metric span {{ margin-top: 10px; font-size: 17px; }}
-    .directory-head {{ display: flex; align-items: baseline; justify-content: space-between; margin-top: 28px; padding-bottom: 12px; border-bottom: 1px solid #aaa08e; }}
-    .directory-head strong {{ font: 800 20px "Noto Serif CJK SC", serif; color: #292620; }}
-    .directory-head span {{ color: #625b50; font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .directory-head {{ display: flex; align-items: baseline; justify-content: space-between; margin-top: 28px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }}
+    .directory-head strong {{ font: 800 20px "Noto Serif CJK SC", serif; color: var(--ink); }}
+    .directory-head span {{ color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
     .directory-grid {{ display: grid; gap: 0 30px; margin-top: 4px; }}
     .directory-column {{ min-width: 0; }}
-    .directory-row {{ display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 58px; border-bottom: 1px solid #b9ae9b; color: #403b34; font-size: 18px; }}
+    .directory-row {{ display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 58px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 18px; }}
     .directory-row strong {{ color: {accent}; font: 700 15px "Noto Sans Mono CJK SC", monospace; }}
     .directory-row span {{ overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }}
     .directory-grid[data-columns="3"] {{ gap: 0 20px; }}
     .directory-grid[data-columns="3"] .directory-row {{ grid-template-columns: 30px minmax(0, 1fr); gap: 7px; min-height: 54px; font-size: 16px; }}
     .directory-grid[data-columns="3"] .directory-row strong {{ font-size: 13px; }}
-    .cover-title {{ margin-top: 22px; max-width: 900px; font: 900 78px/1.15 "Noto Serif CJK SC", serif; color: #292620; }}
-    .cover-lede {{ margin-top: 38px; max-width: 860px; color: #5f584e; font: 600 30px/1.58 "Noto Serif CJK SC", serif; }}
+    .cover-title {{ margin-top: 22px; max-width: 900px; font: 900 78px/1.15 "Noto Serif CJK SC", serif; color: var(--ink); }}
+    .cover-lede {{ margin-top: 38px; max-width: 860px; color: var(--muted); font: 600 30px/1.58 "Noto Serif CJK SC", serif; }}
     .cover-count {{ margin-top: 90px; display: flex; align-items: flex-end; gap: 24px; }}
     .cover-count strong {{ color: {accent}; font: 900 178px/.8 "Noto Sans Mono CJK SC", monospace; }}
-    .cover-count span {{ color: #5f584e; font-size: 24px; line-height: 1.45; padding-bottom: 8px; }}
-    .overview-title, .method-title {{ margin-top: 22px; font: 900 62px/1.15 "Noto Serif CJK SC", serif; color: #292620; }}
-    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 54px; border-top: 1px solid #aaa08e; border-bottom: 1px solid #aaa08e; }}
+    .cover-count span {{ color: var(--muted); font-size: 24px; line-height: 1.45; padding-bottom: 8px; }}
+    .overview-title, .method-title {{ margin-top: 22px; font: 900 62px/1.15 "Noto Serif CJK SC", serif; color: var(--ink); }}
+    .metrics {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 54px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }}
     .metric {{ min-height: 142px; padding: 24px 20px 20px 0; }}
-    .metric + .metric {{ border-left: 1px solid #aaa08e; padding-left: 28px; }}
+    .metric + .metric {{ border-left: 1px solid var(--line); padding-left: 28px; }}
     .metric strong {{ display: block; color: {accent}; font: 900 52px/1 "Noto Sans Mono CJK SC", monospace; }}
-    .metric span {{ display: block; margin-top: 14px; color: #756e62; font-size: 19px; }}
+    .metric span {{ display: block; margin-top: 14px; color: var(--muted); font-size: 19px; }}
     .overview-list {{ margin-top: 42px; }}
-    .overview-row {{ display: flex; align-items: center; gap: 22px; padding: 18px 0; border-top: 1px solid #aaa08e; color: #4f493f; font-size: 23px; }}
+    .overview-row {{ display: flex; align-items: center; gap: 22px; padding: 18px 0; border-top: 1px solid var(--line); color: var(--ink); font-size: 23px; }}
     .overview-row strong {{ width: 42px; color: {accent}; font: 700 19px "Noto Sans Mono CJK SC", monospace; }}
-    .method-steps {{ margin-top: 58px; border-top: 1px solid #aaa08e; }}
-    .method-step {{ display: grid; grid-template-columns: 150px 1fr 90px; gap: 22px; padding: 28px 0; border-bottom: 1px solid #aaa08e; align-items: center; color: #4f493f; font-size: 22px; }}
-    .method-step strong {{ color: #292620; }}
+    .method-steps {{ margin-top: 58px; border-top: 1px solid var(--line); }}
+    .method-step {{ display: grid; grid-template-columns: 150px 1fr 90px; gap: 22px; padding: 28px 0; border-bottom: 1px solid var(--line); align-items: center; color: var(--ink); font-size: 22px; }}
+    .method-step strong {{ color: var(--ink); }}
     .method-step b {{ color: {accent}; font: 700 30px "Noto Sans Mono CJK SC", monospace; text-align: right; }}
-    .method-lede {{ margin-top: 42px; color: #5f584e; font: 600 24px/1.58 "Noto Serif CJK SC", serif; }}
+    .method-lede {{ margin-top: 42px; color: var(--muted); font: 600 24px/1.58 "Noto Serif CJK SC", serif; }}
     """
 
 
@@ -633,7 +661,7 @@ def _legacy_build_card_html(
     )
 
     model_list = "".join(
-        f'<div style="display:flex;align-items:center;gap:22px;border-top:1px solid #bdbdb8;padding:18px 0;font-size:25px"><strong style="color:#087f8c;width:42px">{index:02d}</strong><span>{html.escape(_truncate(item["title"], 34))}</span></div>'
+        f'<div style="display:flex;align-items:center;gap:22px;border-top:1px solid {REPORT_THEME["line"]};padding:18px 0;font-size:25px"><strong style="color:{REPORT_THEME["map_blue"]};width:42px">{index:02d}</strong><span>{html.escape(_truncate(item["title"], 34))}</span></div>'
         for index, item in enumerate(model["items"][:5], start=1)
     )
     overview_content = f"""
@@ -651,8 +679,8 @@ def _legacy_build_card_html(
         {
             "slug": "overview",
             "html": _html_page(
-                _shell(overview_content, accent="#087f8c", index=2, total=total),
-                accent="#087f8c",
+                _shell(overview_content, accent=REPORT_THEME["map_blue"], index=2, total=total),
+                accent=REPORT_THEME["map_blue"],
                 title="今日总览",
             ),
         }
@@ -664,13 +692,13 @@ def _legacy_build_card_html(
         image_block = ""
         if item["image_url"]:
             image_block = f"""
-              <div style="margin-top:28px;height:180px;border-top:2px solid #1c1c1c;border-bottom:2px solid #1c1c1c;overflow:hidden;background:#ddd">
+              <div style="margin-top:28px;height:180px;border-top:2px solid {REPORT_THEME["ink"]};border-bottom:2px solid {REPORT_THEME["ink"]};overflow:hidden;background:{REPORT_THEME["paper_soft"]}">
                 <img src="{html.escape(item["image_url"], quote=True)}" style="width:100%;height:100%;object-fit:cover;display:block" />
               </div>
             """
         else:
             image_block = f"""
-              <div style="margin-top:28px;height:122px;background:{item["color"]};color:white;padding:24px 30px;display:flex;align-items:flex-end;justify-content:space-between">
+              <div style="margin-top:28px;height:122px;background:{item["color"]};color:{REPORT_THEME["ink"]};padding:24px 30px;display:flex;align-items:flex-end;justify-content:space-between">
                 <span style="font-size:23px;font-weight:700">INSPIRATION</span><strong style="font-size:92px;line-height:.82">{item["score"]:.1f}</strong>
               </div>
             """
@@ -678,9 +706,9 @@ def _legacy_build_card_html(
           <div class="eyebrow">创意线索 {item_index:02d} · 关系与问题</div>
           <h1 class="title {title_class}" style="font-size:48px">{html.escape(item["title"])}</h1>
           {image_block}
-          <div style="margin-top:24px;border-left:8px solid {item["color"]};padding-left:22px;font-size:21px;line-height:1.48;color:#333"><strong style="font-size:24px">发生了什么</strong><br>{html.escape(_truncate(item["what_happened"], 170))}</div>
-          <div style="margin-top:24px;background:#fff;border-top:6px solid {item["color"]};padding:22px 26px;font-size:21px;line-height:1.48;color:#292929"><strong style="font-size:24px">真正新鲜的关系是什么</strong><br><span style="display:block;margin-top:10px">{html.escape(_truncate(item["fresh_relationship"], 190))}</span></div>
-          <div style="margin-top:24px;border-top:2px solid #202020;padding-top:20px;font-size:21px;line-height:1.48;color:#333"><strong style="font-size:24px">它可能启发哪一类游戏问题</strong><br><span style="display:block;margin-top:10px">{html.escape(_truncate(item["game_question"], 190))}</span></div>
+          <div style="margin-top:24px;border-left:8px solid {item["color"]};padding-left:22px;font-size:21px;line-height:1.48;color:{REPORT_THEME["ink"]}"><strong style="font-size:24px">发生了什么</strong><br>{html.escape(_truncate(item["what_happened"], 170))}</div>
+          <div style="margin-top:24px;background:{REPORT_THEME["paper_soft"]};border-top:6px solid {item["color"]};padding:22px 26px;font-size:21px;line-height:1.48;color:{REPORT_THEME["ink"]}"><strong style="font-size:24px">真正新鲜的关系是什么</strong><br><span style="display:block;margin-top:10px">{html.escape(_truncate(item["fresh_relationship"], 190))}</span></div>
+          <div style="margin-top:24px;border-top:2px solid {REPORT_THEME["ink"]};padding-top:20px;font-size:21px;line-height:1.48;color:{REPORT_THEME["ink"]}"><strong style="font-size:24px">它可能启发哪一类游戏问题</strong><br><span style="display:block;margin-top:10px">{html.escape(_truncate(item["game_question"], 190))}</span></div>
           <div class="footer"><span>{html.escape(item["source"])} · 灵感值 {item["score"]:.1f}</span><span>{html.escape(item["published_at"][:10])}</span></div>
         """
         cards.append(
@@ -704,11 +732,11 @@ def _legacy_build_card_html(
     method_content = f"""
       <div class="eyebrow">生成方法</div>
       <h1 class="title medium">一条材料如何<br>变成创意线索</h1>
-      <div style="margin-top:58px;border-top:2px solid #202020">
-        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid #bdbdb8;align-items:center"><strong style="font-size:28px">01 抓取</strong><span style="font-size:24px">RSS / RSSHub 汇集候选信号</span><b style="font-size:32px;text-align:right">{stats["fetched"]}</b></div>
-        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid #bdbdb8;align-items:center"><strong style="font-size:28px">02 评分</strong><span style="font-size:24px">寻找具体关系、反常和结果</span><b style="font-size:32px;text-align:right">{stats["scored"]}</b></div>
-        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid #bdbdb8;align-items:center"><strong style="font-size:28px">03 筛选</strong><span style="font-size:24px">留下能形成玩家动作的材料</span><b style="font-size:32px;text-align:right">{stats["filtered"]}</b></div>
-        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:2px solid #202020;align-items:center"><strong style="font-size:28px">04 提炼</strong><span style="font-size:24px">新鲜关系与开放的游戏问题</span><b style="font-size:32px;text-align:right">{stats["enriched"]}</b></div>
+      <div style="margin-top:58px;border-top:2px solid {REPORT_THEME["ink"]}">
+        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid {REPORT_THEME["line"]};align-items:center"><strong style="font-size:28px">01 抓取</strong><span style="font-size:24px">RSS / RSSHub 汇集候选信号</span><b style="font-size:32px;text-align:right">{stats["fetched"]}</b></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid {REPORT_THEME["line"]};align-items:center"><strong style="font-size:28px">02 评分</strong><span style="font-size:24px">寻找具体关系、反常和结果</span><b style="font-size:32px;text-align:right">{stats["scored"]}</b></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:1px solid {REPORT_THEME["line"]};align-items:center"><strong style="font-size:28px">03 筛选</strong><span style="font-size:24px">留下能形成玩家动作的材料</span><b style="font-size:32px;text-align:right">{stats["filtered"]}</b></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 90px;gap:22px;padding:28px 0;border-bottom:2px solid {REPORT_THEME["ink"]};align-items:center"><strong style="font-size:28px">04 提炼</strong><span style="font-size:24px">新鲜关系与开放的游戏问题</span><b style="font-size:32px;text-align:right">{stats["enriched"]}</b></div>
       </div>
       <p class="lede" style="font-size:25px;margin-top:42px">每条创意线索只回答三件事：发生了什么、其中哪段关系真正新鲜、它可以打开哪类游戏问题。图片组展示 {len(featured)} 条，完整 Markdown 保留全部 {model["selected"]} 条。</p>
       <div class="footer"><span>RSSHub → Horizon → n8n</span><span>{date_label}</span></div>
@@ -718,9 +746,9 @@ def _legacy_build_card_html(
             "slug": "method",
             "html": _html_page(
                 _shell(
-                    method_content, accent="#171717", index=method_index, total=total
+                    method_content, accent=REPORT_THEME["ink"], index=method_index, total=total
                 ),
-                accent="#171717",
+                accent=REPORT_THEME["ink"],
                 title="数据与方法",
             ),
         }

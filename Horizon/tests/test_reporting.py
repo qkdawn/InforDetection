@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.reporting import (
     COVER_ACCENT,
     PRODUCT_COLOR,
+    REPORT_THEME,
     build_card_html,
     build_markdown,
     build_report_model,
@@ -144,8 +145,9 @@ def test_card_deck_respects_limit_without_truncating_report_model():
     assert 'class="page cover-page"' in cards[0]["html"]
     assert 'class="page directory-page"' in cards[1]["html"]
     assert 'class="page item-page"' in cards[2]["html"]
-    assert ".cover-page { background: #f0ebdc" in cards[0]["html"]
-    assert ".item-page { background: #eee7d5" in cards[2]["html"]
+    assert f'--paper: {REPORT_THEME["paper"]}' in cards[0]["html"]
+    assert ".cover-page { background: var(--paper)" in cards[0]["html"]
+    assert ".item-page { background: var(--paper)" in cards[2]["html"]
     assert (
         ".cover-count-panel { position: absolute; right: 54px; "
         "top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; "
@@ -247,11 +249,16 @@ def test_item_card_uses_a_warm_paper_background_palette():
 
     card = build_card_html(model, max_cards=3)[2]["html"]
 
-    assert ".item-page { background: #eee7d5" in card
+    assert f'--paper: {REPORT_THEME["paper"]}' in card
+    assert f'--paper-soft: {REPORT_THEME["paper_soft"]}' in card
+    assert f'--ink: {REPORT_THEME["ink"]}' in card
+    assert f'--muted: {REPORT_THEME["muted"]}' in card
+    assert f'--line: {REPORT_THEME["line"]}' in card
+    assert ".item-page { background: var(--paper)" in card
     assert ".editorial-title" in card
-    assert "color: #292620" in card
+    assert "color: var(--ink)" in card
     assert ".event-strip {" in card
-    assert "background: #e8dfcc" in card
+    assert "background: var(--paper-soft)" in card
     assert ".bottom-board {" in card
 
 
@@ -371,7 +378,7 @@ def test_item_art_stays_crisp_in_hero_and_also_colors_the_fallback_atmosphere():
     assert 'class="composition-backdrop is-hero-fallback"' not in card
     assert 'class="editorial-hero-media"' in card
     assert 'class="editorial-hero-copy"' in card
-    assert "rgba(238, 231, 213, 0) 80%" in card
+    assert "transparent 80%" in card
     assert "object-position: right center" in card
 
 
