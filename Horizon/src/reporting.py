@@ -455,13 +455,8 @@ def _base_css(accent: str) -> str:
     .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 40%, color-mix(in srgb, var(--paper) 97%, transparent) 47%, color-mix(in srgb, var(--paper) 75%, transparent) 56%, color-mix(in srgb, var(--paper) 30%, transparent) 67%, transparent 80%); }}
     .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, var(--paper) 76%); }}
     .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
-    .insight-symbol {{ position: relative; width: 70px; height: 70px; margin: auto; border: 1px solid rgba(232, 74, 60, .66); border-radius: 50%; }}
-    .insight-symbol::before, .insight-symbol::after {{ content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }}
-    .insight-symbol::before {{ width: 34px; height: 34px; border: 4px solid {accent}; box-shadow: 0 0 0 7px rgba(232, 74, 60, .12); }}
-    .insight-symbol::after {{ width: 8px; height: 8px; background: {accent}; box-shadow: -25px 0 0 -2px {accent}, 25px 0 0 -2px {accent}, 0 -25px 0 -2px {accent}, 0 25px 0 -2px {accent}; }}
-    .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
-    .event-index .insight-symbol {{ margin: 0; }}
-    .event-index b {{ color: {accent}; font-size: 16px; line-height: 1; }}
+    .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
+    .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
     .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 500 calc(17px * var(--copy-scale))/1.58 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
@@ -910,7 +905,6 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
           </section>
           <section class="event-strip" data-field-label="事件">
             <div class="event-index">
-              <div class="insight-symbol" aria-hidden="true"></div>
               <b>事件</b>
             </div>
             <div class="agent-lead">
