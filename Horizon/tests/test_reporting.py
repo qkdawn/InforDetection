@@ -308,7 +308,7 @@ def test_card_uses_hero_only_once_without_a_background_copy():
         items=[_item("a", 9)],
         meta={"raw_count": 1},
     )
-    model["items"][0]["image_url"] = "data:image/png;base64,HERO-ART"
+    model["items"][0]["concept_image_url"] = "data:image/png;base64,HERO-ART"
     model["items"][0]["composition_image_url"] = None
 
     card = build_card_html(model, max_cards=3)[2]["html"]
@@ -362,7 +362,7 @@ def test_historical_card_without_systems_question_still_renders():
     assert "新鲜关系 legacy" in card
 
 
-def test_item_art_stays_crisp_in_hero_and_also_colors_the_fallback_atmosphere():
+def test_source_art_does_not_replace_the_generated_concept_hero():
     item = _item("a", 9)
     item["content"] = '<p>Body</p><img src="https://example.com/item-art.jpg">'
     model = build_report_model(
@@ -374,12 +374,30 @@ def test_item_art_stays_crisp_in_hero_and_also_colors_the_fallback_atmosphere():
     card = build_card_html(model, max_cards=3)[2]["html"]
 
     assert 'class="page-backdrop"' not in card
-    assert card.count('src="https://example.com/item-art.jpg"') == 1
+    assert 'src="https://example.com/item-art.jpg"' not in card
     assert 'class="composition-backdrop is-hero-fallback"' not in card
-    assert 'class="editorial-hero-media"' in card
+    assert 'class="editorial-hero-media no-image"' in card
     assert 'class="editorial-hero-copy"' in card
     assert "transparent 80%" in card
     assert "object-position: right center" in card
+
+
+def test_generated_concept_art_is_the_only_item_hero_image():
+    item = _item("concept", 9)
+    item["content"] = '<img src="https://example.com/source.jpg">'
+    model = build_report_model(
+        run_id="run-concept-hero",
+        items=[item],
+        meta={"raw_count": 1},
+    )
+    model["items"][0]["concept_image_url"] = "data:image/png;base64,CONCEPT"
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert card.count("data:image/png;base64,CONCEPT") == 1
+    assert "https://example.com/source.jpg" not in card
+    assert 'class="editorial-hero-media"' in card
+    assert 'class="editorial-hero-media no-image"' not in card
 
 
 def test_new_editorial_card_uses_agent_owned_display_copy():

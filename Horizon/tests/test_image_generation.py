@@ -31,7 +31,7 @@ def _item() -> dict:
         "systems_heading": "熟悉之后还会意外吗",
         "systems_question": "路线被反复学习后，边界还会带来意外吗？",
         "game_question": "玩家如何通过移动感知时间？",
-        "image_url": None,
+        "concept_image_url": None,
     }
 
 
@@ -43,6 +43,10 @@ def test_concept_prompt_uses_all_three_report_blocks() -> None:
     assert "玩家如何通过移动感知时间" in prompt
     assert "gouache" in prompt
     assert "game designer's visual development sketch" in prompt
+    assert "wide 3:2 environmental scene" in prompt
+    assert "black-background product photography" in prompt
+    assert "a single artifact floating by itself" in prompt
+    assert "maps or charts shown as the main subject" in prompt
     assert "watermarks" in prompt
 
 
@@ -123,7 +127,7 @@ def test_disabled_generation_keeps_item_unchanged(monkeypatch, tmp_path: Path) -
     result = asyncio.run(generate_concept_images([item], tmp_path))
 
     assert result["enabled"] is False
-    assert item["image_url"] is None
+    assert item["concept_image_url"] is None
 
 
 def test_generation_writes_cache_and_reuses_it(monkeypatch, tmp_path: Path) -> None:
@@ -150,8 +154,8 @@ def test_generation_writes_cache_and_reuses_it(monkeypatch, tmp_path: Path) -> N
 
     assert first["generated"] == 1
     assert second["cached"] == 1
-    assert first_item["image_url"].startswith("data:image/png;base64,")
-    assert second_item["image_url"].startswith("data:image/png;base64,")
+    assert first_item["concept_image_url"].startswith("data:image/png;base64,")
+    assert second_item["concept_image_url"].startswith("data:image/png;base64,")
     assert client.post.await_count == 1
 
 
@@ -225,7 +229,7 @@ def test_card_visual_agent_requests_two_images_for_each_item(
     item["mechanism_steps"] = []
 
     async def concept(items, output_dir):  # type: ignore[no-untyped-def]
-        items[0]["image_url"] = "data:image/png;base64,concept"
+        items[0]["concept_image_url"] = "data:image/png;base64,concept"
         return {"generated": 1}
 
     async def mechanism(items, output_dir):  # type: ignore[no-untyped-def]

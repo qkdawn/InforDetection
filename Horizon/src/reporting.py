@@ -161,7 +161,8 @@ def _normalize_item(
             or "未知来源"
         ),
         "published_at": str(item.get("published_at") or ""),
-        "image_url": _image_url(item),
+        "source_image_url": _image_url(item),
+        "concept_image_url": None,
         "mechanism_image_url": None,
         "related_sources": [
             {
@@ -690,10 +691,10 @@ def _legacy_build_card_html(
         card_index = 2 + item_index
         title_class = "small" if len(item["title"]) > 35 else "medium"
         image_block = ""
-        if item["image_url"]:
+        if item.get("concept_image_url"):
             image_block = f"""
               <div style="margin-top:28px;height:180px;border-top:2px solid {REPORT_THEME["ink"]};border-bottom:2px solid {REPORT_THEME["ink"]};overflow:hidden;background:{REPORT_THEME["paper_soft"]}">
-                <img src="{html.escape(item["image_url"], quote=True)}" style="width:100%;height:100%;object-fit:cover;display:block" />
+                <img src="{html.escape(item["concept_image_url"], quote=True)}" style="width:100%;height:100%;object-fit:cover;display:block" />
               </div>
             """
         else:
@@ -779,7 +780,7 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
     directory_html = "".join(directory_columns_html)
 
     lead = model.get("lead") or {}
-    cover_image = model.get("cover_image_url") or lead.get("image_url")
+    cover_image = model.get("cover_image_url") or lead.get("concept_image_url")
     if cover_image:
         cover_art = f'<figure class="cover-art"><img src="{html.escape(cover_image, quote=True)}" alt=""></figure>'
     else:
@@ -871,8 +872,8 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
         insight_copy = html.escape(item.get("fresh_relationship") or "")
         systems_question_copy = html.escape(item.get("systems_question") or "")
         systems_heading = html.escape(item.get("systems_heading") or "继续追问")
-        if item["image_url"]:
-            hero_url = html.escape(item["image_url"], quote=True)
+        if item.get("concept_image_url"):
+            hero_url = html.escape(item["concept_image_url"], quote=True)
             hero_media = (
                 '<figure class="editorial-hero-media">'
                 f'<img class="media-fit" src="{hero_url}" alt="">'

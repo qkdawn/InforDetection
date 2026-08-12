@@ -225,9 +225,11 @@ def build_concept_prompt(item: dict[str, Any]) -> str:
                 "visual development sketch rather than a finished movie poster"
             ),
             (
-                "Composition/framing: wide 3:2 landscape, one clear off-center focal "
-                "relationship, legible spatial or behavioral logic, readable at card "
-                "size, with a quieter darker lower or side area for a white title overlay"
+                "Composition/framing: wide 3:2 environmental scene, one clear off-center "
+                "focal relationship enacted by people, landscape, architecture, weather, "
+                "or movement. Show a believable place and an unfolding situation rather "
+                "than isolating an object. Keep the right half visually rich and readable "
+                "at card size while the left half remains quieter for the title layer."
             ),
             (
                 "Lighting/mood: environmental light shaped through painted color and "
@@ -240,7 +242,9 @@ def build_concept_prompt(item: dict[str, Any]) -> str:
             (
                 "Avoid: words, letters, captions, logos, watermarks, UI, diagrams, "
                 "split-screen labels, generic digital fantasy rendering, neon sci-fi, "
-                "cute cartoon styling"
+                "cute cartoon styling, black-background product photography, museum object "
+                "catalog shots, a single artifact floating by itself, maps or charts shown "
+                "as the main subject, and literal reproductions of source illustrations"
             ),
         ]
     )
@@ -408,7 +412,7 @@ def _image_mime(data: bytes) -> str:
 def _reference_image_bytes(item: dict[str, Any]) -> list[tuple[str, bytes, str]]:
     references: list[tuple[str, bytes, str]] = []
     for name, path_key, url_key in (
-        ("hero", "concept_image_path", "image_url"),
+        ("hero", "concept_image_path", "concept_image_url"),
         ("mechanism", "mechanism_image_path", "mechanism_image_url"),
     ):
         data = b""
@@ -839,7 +843,7 @@ async def generate_concept_images(
                         )
                     path.write_bytes(data)
                     result.generated += 1
-                item["image_url"] = _data_uri(data)
+                item["concept_image_url"] = _data_uri(data)
                 item["concept_image_path"] = str(path)
                 result.images.append(str(path))
             except Exception as exc:
@@ -1060,7 +1064,7 @@ class CardVisualAgent:
             model="disabled",
         ).to_dict()
         complete_items = sum(
-            bool(item.get("image_url") and item.get("mechanism_image_url"))
+            bool(item.get("concept_image_url") and item.get("mechanism_image_url"))
             for item in items
         )
         return {
