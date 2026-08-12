@@ -51,6 +51,8 @@ class ProfileEnrichment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     prompt: str
+    insight_block: Optional[str] = None
+    systems_block: Optional[str] = None
     blocks: list[ProfileBlock] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -63,6 +65,30 @@ class ProfileEnrichment(BaseModel):
             raise ValueError("enrichment may define at most one primary block")
         if primary_blocks and primary_blocks[0].optional:
             raise ValueError("the primary enrichment block must be required")
+        if self.insight_block:
+            if self.insight_block not in ids:
+                raise ValueError("enrichment.insight_block must name a configured block")
+            insight_block = next(
+                block for block in self.blocks if block.id == self.insight_block
+            )
+            if insight_block.primary:
+                raise ValueError("enrichment.insight_block cannot be the primary block")
+            if insight_block.optional:
+                raise ValueError("enrichment.insight_block must be required")
+        if self.systems_block:
+            if self.systems_block not in ids:
+                raise ValueError("enrichment.systems_block must name a configured block")
+            systems_block = next(
+                block for block in self.blocks if block.id == self.systems_block
+            )
+            if systems_block.primary:
+                raise ValueError("enrichment.systems_block cannot be the primary block")
+            if systems_block.optional:
+                raise ValueError("enrichment.systems_block must be required")
+            if self.systems_block == self.insight_block:
+                raise ValueError(
+                    "enrichment.systems_block must differ from insight_block"
+                )
         return self
 
 
@@ -74,10 +100,27 @@ class ProfileDefinition(BaseModel):
     display_names: dict[str, str] = Field(default_factory=dict)
     match: str
     analysis: str
+    editorial: Optional[str] = None
+    insight: Optional[str] = None
+    systems: Optional[str] = None
     filter: ProfileFilter
     content: ProfileContent = Field(default_factory=ProfileContent)
     topic_dedup: ProfileTopicDedup = Field(default_factory=ProfileTopicDedup)
     enrichment: ProfileEnrichment
+
+    @model_validator(mode="after")
+    def require_complete_insight_configuration(self) -> "ProfileDefinition":
+        if bool(self.insight) != bool(self.enrichment.insight_block):
+            raise ValueError(
+                "profile insight prompt and enrichment.insight_block must be configured together"
+            )
+        if bool(self.systems) != bool(self.enrichment.systems_block):
+            raise ValueError(
+                "profile systems prompt and enrichment.systems_block must be configured together"
+            )
+        if self.systems and not self.insight:
+            raise ValueError("profile systems prompt requires an insight prompt")
+        return self
 
 
 @dataclass(frozen=True)
@@ -86,6 +129,9 @@ class LoadedProfile:
     match_prompt: str
     analysis_prompt: str
     enrichment_prompt: str
+    editorial_prompt: str = ""
+    insight_prompt: str = ""
+    systems_prompt: str = ""
 
     @property
     def id(self) -> str:
@@ -133,6 +179,21 @@ class ProfileRegistry:
                 analysis_prompt=cls._read_prompt(profile_dir, definition.analysis),
                 enrichment_prompt=cls._read_prompt(
                     profile_dir, definition.enrichment.prompt
+                ),
+                editorial_prompt=(
+                    cls._read_prompt(profile_dir, definition.editorial)
+                    if definition.editorial
+                    else ""
+                ),
+                insight_prompt=(
+                    cls._read_prompt(profile_dir, definition.insight)
+                    if definition.insight
+                    else ""
+                ),
+                systems_prompt=(
+                    cls._read_prompt(profile_dir, definition.systems)
+                    if definition.systems
+                    else ""
                 ),
             )
         if not profiles:

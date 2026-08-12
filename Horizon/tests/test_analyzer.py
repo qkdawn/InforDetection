@@ -168,6 +168,18 @@ def test_analysis_prompt_combines_common_rules_and_profile_policy():
     assert "# Output contract" in prompt
 
 
+def test_game_analysis_starts_with_editorial_stance():
+    profiles = ProfileRegistry.load(
+        Path(__file__).resolve().parents[1] / "profiles", "game-tech-daily"
+    )
+
+    prompt = analysis_system_prompt(profiles.get("game-tech-daily"))
+
+    assert "# Editorial stance" in prompt
+    assert "以体验为中心的游戏设计编辑" in prompt
+    assert prompt.index("# Editorial stance") < prompt.index("# Profile policy")
+
+
 def test_analyze_item_repairs_invalid_result_once():
     responses = iter(
         [

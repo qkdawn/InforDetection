@@ -200,6 +200,9 @@ def build_content_topic_profiles(
                 f"{selected.enrichment_prompt}\n\n"
                 f"# Board enrichment: {topic.name}\n\n{topic.enrichment_prompt}"
             ),
+            editorial_prompt=selected.editorial_prompt,
+            insight_prompt=selected.insight_prompt,
+            systems_prompt=selected.systems_prompt,
         )
 
     if not replacements:

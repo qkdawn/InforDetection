@@ -70,6 +70,55 @@ class ArtifactSource(BaseModel):
     url: str
 
 
+class EventCardCopy(BaseModel):
+    """Display copy owned by the event editor."""
+
+    deck: str
+    condition: Optional[str] = None
+
+    @field_validator("deck")
+    @classmethod
+    def validate_copy(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("card copy must not be empty")
+        return value
+
+    @field_validator("condition")
+    @classmethod
+    def normalize_legacy_condition(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value and value.strip() else None
+
+
+class InsightCardCopy(BaseModel):
+    """Display copy owned by the insight editor."""
+
+    headline: str
+    summary: str
+    previous_understanding: Optional[str] = None
+    new_understanding: Optional[str] = None
+    design_takeaway: Optional[str] = None
+    changed_relationship: Optional[str] = None
+
+    @field_validator("headline", "summary")
+    @classmethod
+    def validate_copy(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("card copy must not be empty")
+        return value
+
+    @field_validator(
+        "previous_understanding",
+        "new_understanding",
+        "design_takeaway",
+        "changed_relationship",
+    )
+    @classmethod
+    def normalize_optional_copy(cls, value: Optional[str]) -> Optional[str]:
+        return value.strip() if value and value.strip() else None
+
+
 class ContentBlock(BaseModel):
     """A renderable section produced by an enrichment profile."""
 
@@ -79,6 +128,8 @@ class ContentBlock(BaseModel):
     content: str
     source_refs: List[str] = Field(default_factory=list)
     primary: bool = False
+    event_card: Optional[EventCardCopy] = None
+    insight_card: Optional[InsightCardCopy] = None
 
 
 class ContentArtifact(BaseModel):

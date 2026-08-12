@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from src.ai.prompting.enrichment import (
     artifact_prompt,
     block_prompt,
+    editorial_tool_results_text,
+    event_narration_prompt,
+    game_insight_prompt,
     item_context,
+    systems_question_prompt,
     tool_planning_prompt,
 )
 from src.models import (
@@ -26,7 +30,7 @@ def test_tool_planning_excludes_profile_writing_policy():
     profile = PROFILES.get("tech-news")
     blocks = profile.definition.enrichment.blocks
 
-    planning = tool_planning_prompt(blocks)
+    planning = tool_planning_prompt(profile, blocks)
     artifact = artifact_prompt(profile, "en", blocks)
     block = block_prompt(profile, "en", blocks[0], include_header=True)
 
@@ -67,3 +71,70 @@ def test_enrichment_context_uses_profile_content_budget():
     assert "OPENING" in context
     assert "MIDDLE" in context
     assert "ENDING" in context
+
+
+def test_editorial_references_are_deduplicated_without_losing_block_citations():
+    from src.processing.tools import ToolResult
+
+    shared = {
+        "title": "Shared evidence",
+        "url": "https://example.com/shared",
+        "text": "One concrete fact.",
+    }
+    rendered = editorial_tool_results_text(
+        [
+            ToolResult(
+                request_id="fact-1",
+                block_id="what_happened",
+                tool="web_search",
+                results=[shared],
+            ),
+            ToolResult(
+                request_id="relation-1",
+                block_id="fresh_relationship",
+                tool="web_search",
+                results=[shared],
+            ),
+        ]
+    )
+
+    assert rendered.count("https://example.com/shared") == 1
+    assert "`fact-1-1` for block `what_happened`" in rendered
+    assert "`relation-1-1` for block `fresh_relationship`" in rendered
+
+
+def test_editorial_generation_uses_separate_event_and_insight_prompts():
+    profiles = ProfileRegistry.load(
+        Path(__file__).resolve().parents[1] / "profiles", "game-tech-daily"
+    )
+    profile = profiles.get("game-tech-daily")
+    event = event_narration_prompt(
+        profile, "zh", profile.definition.enrichment.blocks[0]
+    )
+    insight = game_insight_prompt(
+        profile, "zh", profile.definition.enrichment.blocks[1]
+    )
+    systems = systems_question_prompt(
+        profile, "zh", profile.definition.enrichment.blocks[2]
+    )
+
+    assert "what_happened" in event
+    assert '"event_card"' not in event
+    assert '"condition"' not in event
+    assert "事件叙述" in event
+    assert "你是第二位编辑" in insight
+    assert "选择、代价、限制、反馈和不确定性" in insight
+    assert '"decision": "publish" or "reject"' in insight
+    assert '"rejection_reason"' in insight
+    assert '"insight_card"' not in insight
+    assert '"previous_understanding"' not in insight
+    assert '"new_understanding"' not in insight
+    assert '"design_takeaway"' not in insight
+    assert '"changed_relationship"' not in insight
+    assert "Privately test several lenses" not in insight
+    assert "short, surprising" not in insight
+    assert "fixed questionnaire" not in insight
+    assert "analysis reason only as a hypothesis" not in insight
+    assert "开放复杂巨系统" in systems
+    assert "进一步的观察、讨论、建模或游戏实验" in systems
+    assert '"id": "systems_question"' in systems

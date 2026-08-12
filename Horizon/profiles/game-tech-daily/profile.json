@@ -6,6 +6,9 @@
   },
   "match": "match.md",
   "analysis": "analysis.md",
+  "editorial": "editorial.md",
+  "insight": "insight.md",
+  "systems": "systems.md",
   "filter": {
     "enabled": true,
     "threshold": 7.0
@@ -17,20 +20,22 @@
   },
   "enrichment": {
     "prompt": "enrichment.md",
+    "insight_block": "fresh_relationship",
+    "systems_block": "systems_question",
     "blocks": [
       {
         "id": "what_happened",
         "type": "section",
-        "tools": [],
+        "tools": ["web_search"],
         "primary": true
       },
       {
         "id": "fresh_relationship",
         "type": "section",
-        "tools": []
+        "tools": ["web_search"]
       },
       {
-        "id": "game_question",
+        "id": "systems_question",
         "type": "section",
         "tools": []
       }

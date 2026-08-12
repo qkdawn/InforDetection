@@ -29,12 +29,28 @@ def test_game_inspiration_profile_requires_playable_depth():
     assert [block.id for block in profile.definition.enrichment.blocks] == [
         "what_happened",
         "fresh_relationship",
-        "game_question",
+        "systems_question",
     ]
-    assert "真正新鲜的关系是什么" in profile.enrichment_prompt
-    assert "它可能启发哪一类游戏问题" in profile.enrichment_prompt
-    assert "写得清楚、自然、具体" in profile.enrichment_prompt
-    assert "留给设计者继续思考" in profile.enrichment_prompt
+    assert [block.optional for block in profile.definition.enrichment.blocks] == [
+        False,
+        False,
+        False,
+    ]
+    assert profile.definition.enrichment.insight_block == "fresh_relationship"
+    assert profile.definition.enrichment.systems_block == "systems_question"
+    assert profile.definition.editorial == "editorial.md"
+    assert profile.definition.insight == "insight.md"
+    assert profile.definition.systems == "systems.md"
+    assert "以体验为中心的游戏设计编辑" in profile.editorial_prompt
+    assert "正在寻找新鲜经验和设计启发" in profile.editorial_prompt
+    assert "不要展示分析过程" in profile.editorial_prompt
+    assert "选择、代价、限制、反馈和不确定性" in profile.insight_prompt
+    assert "《系统之美》" in profile.systems_prompt
+    assert "开放复杂巨系统" in profile.systems_prompt
+    assert "从一个角色、一个动作或一个局部机制" in profile.systems_prompt
+    assert "这不是材料摘要" in profile.enrichment_prompt
+    assert "核心发现" in profile.enrichment_prompt
+    assert "应当退稿" in profile.enrichment_prompt
     assert "why_playable" not in profile.enrichment_prompt
     assert "player_choices" not in profile.enrichment_prompt
     assert "first_test" not in profile.enrichment_prompt
@@ -53,7 +69,8 @@ def test_game_inspiration_profile_requires_playable_depth():
         "Mention missing information only when it materially caps"
         in profile.analysis_prompt
     )
-    assert "不用固定免责声明" in profile.enrichment_prompt
+    assert "understand differently" in profile.analysis_prompt
+    assert "score at most 6.9" in profile.analysis_prompt
     assert "包括主体、条件、结果和仍不确定之处" not in profile.enrichment_prompt
     assert profile.definition.filter.threshold == 7.0
 
@@ -122,4 +139,42 @@ def test_rejects_prompt_path_outside_profile_directory(tmp_path):
     )
 
     with pytest.raises(ValueError, match="escapes"):
+        ProfileRegistry.load(tmp_path, "invalid")
+
+
+def test_rejects_systems_prompt_without_a_systems_block(tmp_path):
+    profile_dir = tmp_path / "invalid"
+    profile_dir.mkdir()
+    for name in (
+        "match.md",
+        "analysis.md",
+        "enrichment.md",
+        "insight.md",
+        "systems.md",
+    ):
+        (profile_dir / name).write_text("prompt", encoding="utf-8")
+    (profile_dir / "profile.json").write_text(
+        json.dumps(
+            {
+                "id": "invalid",
+                "name": "Invalid",
+                "match": "match.md",
+                "analysis": "analysis.md",
+                "insight": "insight.md",
+                "systems": "systems.md",
+                "filter": {"enabled": False},
+                "enrichment": {
+                    "prompt": "enrichment.md",
+                    "insight_block": "insight",
+                    "blocks": [
+                        {"id": "event", "primary": True},
+                        {"id": "insight"},
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="systems prompt"):
         ProfileRegistry.load(tmp_path, "invalid")

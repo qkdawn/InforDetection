@@ -1,6 +1,7 @@
 """Main orchestrator coordinating the entire workflow."""
 
 import asyncio
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,7 @@ from .ai.client import create_ai_client
 from .ai.analyzer import ContentAnalyzer
 from .ai.summarizer import DailySummarizer
 from .ai.enricher import ContentEnricher, EnrichmentBatchResult
+from .ai.researcher import ContentResearcher, ResearchBatchResult
 from .ai.tokens import get_usage_snapshot
 from .processing import ProfileRegistry
 
@@ -48,6 +50,8 @@ _TRACKING_QUERY_PARAMETERS = {
     "twclid",
     "vero_id",
 }
+
+logger = logging.getLogger(__name__)
 
 
 def _deduplication_url_key(url: str) -> tuple[str, str, str, str, Optional[int], str, str]:
@@ -281,10 +285,13 @@ class HorizonOrchestrator:
                 self.console.print(f"      {self.icons['detail']} {source_key}: {count}")
             self.console.print("")
 
-            # 6. Search related stories + enrich with background knowledge (2nd AI pass)
+            # 6. Research selected items before writing the creative analysis.
+            await self.research_items(important_items)
+
+            # 7. Generate the creative analysis from the source and research pack.
             await self.enrich_items(important_items)
 
-            # 7. Generate and save daily summaries for each configured language
+            # 8. Generate and save daily summaries for each configured language
             today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             for lang in self.config.ai.languages:
                 summarizer = DailySummarizer(profile_names=self.profiles.names)
@@ -1073,10 +1080,46 @@ class HorizonOrchestrator:
         self.console.print(
             f"   Enriched {result.succeeded_count}/{len(items)} items"
         )
+        if result.rejected_count:
+            self.console.print(
+                f"   Editorially rejected {result.rejected_count} items: "
+                f"{', '.join(result.rejected_ids)}"
+            )
         if result.failed_count:
             self.console.print(
                 f"   [yellow]Skipped {result.failed_count} items after enrichment "
                 f"failed: {', '.join(result.failed_ids)}[/yellow]"
+            )
+        self.console.print("")
+        return result
+
+    async def research_items(self, items: List[ContentItem]) -> ResearchBatchResult:
+        """Research selected items and attach a reusable mechanism research pack."""
+        if not items:
+            return ResearchBatchResult()
+
+        self.console.print(
+            f"{self.icons.get('research', self.icons['enrich'])} Researching originals and related mechanisms..."
+        )
+        try:
+            ai_client = create_ai_client(self.config.ai)
+        except Exception as exc:
+            logger.warning("Research AI unavailable; continuing without research: %s", exc)
+            return ResearchBatchResult(
+                failures={item.id: f"{type(exc).__name__}: {exc}" for item in items}
+            )
+        researcher = ContentResearcher(
+            ai_client,
+            self.profiles,
+            console=self.console,
+        )
+        result = await researcher.research_batch(items)
+        self.console.print(
+            f"   Researched {result.succeeded_count}/{len(items)} items"
+        )
+        if result.failed_count:
+            self.console.print(
+                f"   [yellow]Research failed for {', '.join(result.failed_ids)}[/yellow]"
             )
         self.console.print("")
         return result

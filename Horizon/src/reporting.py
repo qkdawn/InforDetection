@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import os
@@ -14,7 +15,10 @@ from zoneinfo import ZoneInfo
 import httpx
 from bs4 import BeautifulSoup
 
-from .image_generation import generate_concept_images
+from .image_generation import (
+    CardVisualAgent,
+    generate_cover_image,
+)
 
 
 CONTENT_TOPIC_DEFINITIONS = (
@@ -27,6 +31,7 @@ CONTENT_TOPIC_DEFINITIONS = (
 )
 PRODUCT_NAME = "游戏创意雷达"
 PRODUCT_COLOR = "#e84a3c"
+COVER_ACCENT = "#e9d93e"
 
 
 def _plain_text(value: Any) -> str:
@@ -42,6 +47,15 @@ def _truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: max(1, limit - 1)].rstrip("，。；：,.!? ") + "…"
+
+
+def _mechanism_steps(value: Any) -> list[str]:
+    text = _plain_text(value)
+    if not text:
+        return []
+    parts = re.split(r"\s*(?:→|->|=>|｜|\||\n)\s*", text)
+    steps = [_truncate(part, 12) for part in parts if _plain_text(part)]
+    return steps[:4] if len(steps) >= 2 else []
 
 
 def _image_url(item: dict[str, Any]) -> str | None:
@@ -74,7 +88,9 @@ def _normalize_item(
     blocks = artifact.get("blocks") or []
     by_id = {str(block.get("id")): block for block in blocks}
     what_happened = by_id.get("what_happened")
+    mechanism_chain = by_id.get("mechanism_chain")
     fresh_relationship = by_id.get("fresh_relationship")
+    systems_question = by_id.get("systems_question")
     game_question = by_id.get("game_question")
     metadata = item.get("metadata") or {}
     category = str(metadata.get("category") or "other")
@@ -110,6 +126,13 @@ def _normalize_item(
         "fresh_relationship": _plain_text(
             (fresh_relationship or {}).get("content") or ""
         ),
+        "event_heading": _plain_text((what_happened or {}).get("title") or ""),
+        "insight_heading": _plain_text((fresh_relationship or {}).get("title") or ""),
+        "systems_question": _plain_text((systems_question or {}).get("content") or ""),
+        "systems_heading": _plain_text((systems_question or {}).get("title") or ""),
+        "mechanism_steps": _mechanism_steps(
+            (mechanism_chain or {}).get("content") or ""
+        ),
         "game_question": _plain_text((game_question or {}).get("content") or ""),
         "reason": _plain_text(analysis.get("reason") or ""),
         "tags": [
@@ -125,6 +148,7 @@ def _normalize_item(
         ),
         "published_at": str(item.get("published_at") or ""),
         "image_url": _image_url(item),
+        "mechanism_image_url": None,
         "related_sources": [
             {
                 "title": _plain_text(source.get("title") or "补充来源"),
@@ -134,6 +158,20 @@ def _normalize_item(
             if source.get("url")
         ],
     }
+
+
+def _is_publishable_item(item: dict[str, Any]) -> bool:
+    processing = item.get("processing") or {}
+    artifact = (processing.get("artifacts") or {}).get("zh") or {}
+    blocks = artifact.get("blocks") or []
+    content_by_id = {
+        str(block.get("id")): _plain_text(block.get("content") or "")
+        for block in blocks
+        if isinstance(block, dict)
+    }
+    return bool(
+        content_by_id.get("what_happened") and content_by_id.get("fresh_relationship")
+    )
 
 
 def build_report_model(
@@ -162,7 +200,11 @@ def build_report_model(
         topic_id: (name, color) for topic_id, name, color, _ in content_topic_rows
     }
     normalized = sorted(
-        (_normalize_item(item, content_sections) for item in items),
+        (
+            _normalize_item(item, content_sections)
+            for item in items
+            if _is_publishable_item(item)
+        ),
         key=lambda item: (-item["score"], item["title"]),
     )
     sections = []
@@ -192,13 +234,24 @@ def build_report_model(
 
     fetched = int(meta.get("raw_count") or len(normalized))
     selected = len(normalized)
+    rejected = int(meta.get("enrichment_rejected_count") or 0)
+    enrichment_failed = int(meta.get("enrichment_failed_count") or 0)
+    filtered = int(meta.get("filtered_count") or selected)
     lead = normalized[0] if normalized else None
-    overview = (
-        f"本期从 {fetched} 条材料中发现 {selected} 条值得继续追问的创意线索。"
-        f"最值得先看的是《{lead['title']}》。"
-        if lead
-        else f"本期抓取 {fetched} 条材料，暂未发现足够具体的创意线索。"
-    )
+    if lead:
+        overview = (
+            f"今天扫过 {fetched} 条材料，留下 {selected} 个值得聊聊的点。"
+            f"先看《{lead['title']}》。"
+        )
+    elif rejected and not enrichment_failed and rejected >= filtered:
+        overview = (
+            f"今天扫过 {fetched} 条材料，候选材料经过深挖后全部退稿，"
+            "没有留下足够扎实的核心发现。"
+        )
+    elif rejected:
+        overview = f"今天扫过 {fetched} 条材料，深挖后没有留下可发布的核心发现。"
+    else:
+        overview = f"今天扫过 {fetched} 条材料，没有留下足够具体的游戏点子。"
     return {
         "run_id": run_id,
         "date": _report_date(meta),
@@ -214,8 +267,9 @@ def build_report_model(
         "stats": {
             "fetched": fetched,
             "scored": int(meta.get("scored_count") or 0),
-            "filtered": int(meta.get("filtered_count") or selected),
+            "filtered": filtered,
             "enriched": int(meta.get("enriched_count") or selected),
+            "rejected": rejected,
         },
     }
 
@@ -238,18 +292,29 @@ def build_markdown(model: dict[str, Any]) -> str:
     for section in model["sections"]:
         lines.extend([f"## {section['name']}", ""])
         for item in section["items"]:
-            lines.extend(
-                [
-                    f"### [{item['title']}]({item['url']}) · 灵感值 {item['score']:.1f}/10",
-                    "",
-                    f"**发生了什么：** {item['what_happened']}",
-                    "",
-                    f"**真正新鲜的关系是什么：** {item['fresh_relationship']}",
-                    "",
-                    f"**它可能启发哪一类游戏问题：** {item['game_question']}",
-                    "",
-                ]
-            )
+            item_lines = [
+                f"### [{item['title']}]({item['url']}) · 灵感值 {item['score']:.1f}/10",
+                "",
+                f"**发生了什么：** {item['what_happened']}",
+                "",
+            ]
+            if item["mechanism_steps"]:
+                item_lines.extend(
+                    [f"**机制链：** {' → '.join(item['mechanism_steps'])}", ""]
+                )
+            if item["fresh_relationship"]:
+                item_lines.extend(
+                    [f"**真正好玩的地方：** {item['fresh_relationship']}", ""]
+                )
+            if item["systems_question"]:
+                item_lines.extend(
+                    [f"**再往下问一层：** {item['systems_question']}", ""]
+                )
+            if item["game_question"]:
+                item_lines.extend(
+                    [f"**它可能启发哪一类游戏问题：** {item['game_question']}", ""]
+                )
+            lines.extend(item_lines)
             if item["related_sources"]:
                 links = " · ".join(
                     f"[{source['title']}]({source['url']})"
@@ -272,10 +337,11 @@ def build_markdown(model: dict[str, Any]) -> str:
             "",
             (
                 f"本期依次完成抓取（{stats['fetched']} 条）、AI 评分（{stats['scored']} 条）、"
-                f"灵感筛选（{stats['filtered']} 条）、关系提炼（{stats['enriched']} 条）。"
+                f"灵感筛选（{stats['filtered']} 条）、关系提炼（{stats['enriched']} 条）、"
+                f"深挖退稿（{stats.get('rejected', 0)} 条）。"
             ),
             "",
-            "Horizon 在后台识别来源中特有的异常关系；日报只展示发生了什么、真正新鲜的关系，以及它可能启发的游戏问题。n8n 负责定时编排与发布。",
+            "Horizon 在后台先把事件讲清楚，再判断它是否留下了值得带走的设计启发；只有真正增加理解时，日报才补充关系或问题。n8n 负责定时编排与发布。",
             "",
             "原始事实、新鲜关系与设计问题分开呈现；问题用于启发，不代表原作者观点。",
             "",
@@ -289,43 +355,167 @@ def _base_css(accent: str) -> str:
     * {{ box-sizing: border-box; }}
     html, body {{ margin: 0; width: 1080px; height: 1440px; overflow: hidden; }}
     body {{
-      font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-      color: #f2f1e9; background: #0d1210; letter-spacing: 0;
+      font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
+      color: #f3f0e7; background: #17382f; letter-spacing: 0;
       -webkit-font-smoothing: antialiased;
     }}
-    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: #0d1210; }}
+    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: #17382f; }}
+    .page::before {{ content: ""; position: absolute; z-index: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }}
+    .item-page::before {{ display: none; }}
+    .cover-page::before {{ display: none; }}
+    .directory-page::before {{ top: 500px; background: #17382f; border-top: 1px solid #315c50; }}
     .content {{ position: relative; z-index: 1; height: 100%; }}
-    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: rgba(8, 12, 10, .92); border-bottom: 3px solid {accent}; font: 700 17px "Noto Sans Mono CJK SC", monospace; }}
+    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: rgba(23, 56, 47, .86); border-bottom: 3px solid {accent}; font: 700 17px "Noto Sans Mono CJK SC", monospace; backdrop-filter: blur(14px); }}
     .brand {{ display: flex; align-items: baseline; gap: 10px; }}
     .brand strong {{ color: {accent}; font-size: 20px; }}
     .brand b {{ color: #7f8b86; }}
     .meta {{ display: flex; align-items: center; gap: 18px; font-variant-numeric: tabular-nums; }}
-    .score {{ padding: 8px 11px; background: {accent}; color: #0d1210; font-size: 18px; }}
+    .score {{ padding: 8px 11px; background: {accent}; color: #101512; font-size: 18px; }}
     h1, h2, h3, p {{ margin: 0; }}
-    .hero {{ position: absolute; inset: 0 0 auto; height: 720px; margin: 0; overflow: hidden; background: #16201c; }}
+    .page-backdrop {{ position: absolute; z-index: 0; inset: 0; overflow: hidden; background: #17382f; }}
+    .page-backdrop img {{ width: 100%; height: 100%; display: block; object-fit: cover; filter: blur(30px) saturate(.58) contrast(.94); transform: scale(1.08); opacity: .18; }}
+    .page-backdrop::after {{ content: ""; position: absolute; inset: 0; background: rgba(23, 56, 47, .78); }}
+    .hero {{ position: absolute; inset: 92px 0 auto; height: 558px; margin: 0; overflow: hidden; background: #315c50; }}
     .hero img {{ width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.78) contrast(1.08); }}
-    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(8, 12, 10, .04) 30%, rgba(8, 12, 10, .96) 100%); }}
-    .hero.no-image {{ height: 430px; border-bottom: 1px solid #3c4842; }}
+    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(23, 56, 47, .06) 26%, rgba(23, 56, 47, .93) 100%); }}
+    .hero.no-image {{ height: 430px; border-bottom: 1px solid #445149; }}
     .hero.no-image::after {{ display: none; }}
-    .hero-title {{ position: absolute; z-index: 2; left: 58px; right: 58px; top: 476px; height: 220px; overflow: hidden; }}
+    .hero-title {{ position: absolute; z-index: 2; left: 58px; right: 58px; top: 404px; height: 216px; overflow: hidden; }}
     .hero-title.no-image {{ top: 186px; }}
-    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: #0d1210; font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
-    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 900 63px/1.17 "Noto Serif CJK SC", serif; color: #f2f1e9; text-shadow: 0 3px 22px rgba(0,0,0,.48); overflow: hidden; overflow-wrap: anywhere; }}
-    .body {{ position: absolute; left: 58px; right: 58px; top: 730px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; }}
+    .hero.with-mechanism {{ height: 418px; }}
+    .hero-title.with-mechanism {{ top: 286px; }}
+    .body.with-mechanism {{ top: 510px; }}
+    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: #101512; font: 800 19px "Noto Sans Mono CJK SC", monospace; }}
+    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 700 62px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; color: #f3f0e7; text-shadow: 0 3px 22px rgba(0,0,0,.48); overflow: hidden; overflow-wrap: anywhere; }}
+    .body {{ position: absolute; left: 58px; right: 58px; top: 670px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; border-top: 1px solid rgba(220, 232, 223, .16); box-shadow: inset 0 28px 46px rgba(8, 24, 18, .16); }}
     .body.no-image {{ top: 438px; }}
     .copy {{ --copy-scale: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
-    .fact {{ display: grid; grid-template-columns: 170px 1fr; gap: 28px; padding: calc(20px * var(--copy-scale)) 0 calc(22px * var(--copy-scale)); border-bottom: 1px solid #3c4842; }}
-    .label {{ color: #91a099; font: 600 16px "Noto Sans Mono CJK SC", monospace; }}
-    .fact p {{ margin: 0; color: #c7cec9; font-size: calc(19px * var(--copy-scale)); line-height: 1.55; }}
-    .relation {{ padding: calc(24px * var(--copy-scale)) 0 calc(28px * var(--copy-scale)) 198px; border-bottom: 1px solid #3c4842; position: relative; }}
-    .relation .label {{ position: absolute; left: 0; top: calc(30px * var(--copy-scale)); }}
-    .relation blockquote {{ margin: 0; font-family: "Noto Serif CJK SC", serif; font-size: calc(29px * var(--copy-scale)); font-weight: 700; line-height: 1.48; color: #f2f1e9; }}
-    .question {{ margin-top: calc(24px * var(--copy-scale)); padding: calc(20px * var(--copy-scale)) 28px calc(22px * var(--copy-scale)); background: {accent}; color: #0d1210; }}
-    .question .label {{ color: #0d1210; opacity: .76; }}
-    .question p {{ margin: calc(10px * var(--copy-scale)) 0 0; font-family: "Noto Serif CJK SC", serif; font-size: calc(22px * var(--copy-scale)); font-weight: 800; line-height: 1.5; }}
-    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: #91a099; font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
+    .fact {{ margin-top: 14px; padding: calc(22px * var(--copy-scale)) 24px calc(24px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(220, 232, 223, .12); background: rgba(9, 35, 27, .74); box-shadow: 0 12px 28px rgba(8, 24, 18, .16); }}
+    .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: #aeb9b2; font: 700 15px/1.2 "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; letter-spacing: .04em; }}
+    .fact p {{ margin: 0; color: #e4e8e2; font-size: calc(23px * var(--copy-scale)); line-height: 1.58; }}
+    .relation {{ margin-top: 12px; padding: calc(22px * var(--copy-scale)) 24px calc(26px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(220, 232, 223, .12); position: relative; background: rgba(9, 35, 27, .74); box-shadow: 0 12px 28px rgba(8, 24, 18, .16); }}
+    .relation .label {{ position: static; }}
+    .mechanism-flow {{ display: flex; align-items: stretch; gap: 9px; margin: 0 0 calc(17px * var(--copy-scale)); }}
+    .mechanism-node {{ flex: 1 1 0; min-width: 0; min-height: calc(62px * var(--copy-scale)); padding: calc(10px * var(--copy-scale)) 10px; display: flex; align-items: center; justify-content: center; border-top: 3px solid {accent}; background: #214a3f; color: #f3f0e7; text-align: center; font-size: calc(17px * var(--copy-scale)); font-weight: 700; line-height: 1.32; overflow-wrap: anywhere; }}
+    .mechanism-node:last-of-type {{ background: {accent}; color: #101512; }}
+    .mechanism-arrow {{ flex: 0 0 18px; display: flex; align-items: center; justify-content: center; color: {accent}; font-size: calc(24px * var(--copy-scale)); font-weight: 800; }}
+    .mechanism-visual {{ height: calc(178px * var(--copy-scale)); margin: 0 0 calc(15px * var(--copy-scale)); overflow: hidden; background: #e8e0cf; border-top: 3px solid {accent}; box-shadow: 0 10px 24px rgba(8, 24, 18, .2); }}
+    .mechanism-visual img {{ width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; filter: saturate(.88) contrast(1.04); }}
+    .mechanism-caption {{ margin: calc(-5px * var(--copy-scale)) 0 calc(14px * var(--copy-scale)); color: #aeb9b2; font-size: calc(15px * var(--copy-scale)); font-weight: 600; line-height: 1.35; }}
+    .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif; font-size: calc(29px * var(--copy-scale)); font-weight: 600; line-height: 1.44; color: #f3f0e7; }}
+    .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: #d7d7ca; box-shadow: 0 10px 24px rgba(8, 24, 18, .24), inset 0 1px rgba(255, 255, 255, .5); }}
+    .systems-question .label {{ margin-bottom: calc(9px * var(--copy-scale)); color: {accent}; font-size: calc(14px * var(--copy-scale)); }}
+    .systems-question p {{ color: #17382f; font: 700 calc(20px * var(--copy-scale))/1.5 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
+    .copy.has-mechanism .fact {{ padding-top: calc(15px * var(--copy-scale)); padding-bottom: calc(17px * var(--copy-scale)); }}
+    .copy.has-mechanism .relation {{ padding-top: calc(17px * var(--copy-scale)); padding-bottom: calc(19px * var(--copy-scale)); }}
+    .item-page {{ background: #03150f; }}
+    .item-page .top {{ min-height: 72px; padding: 0 36px; background: rgba(3, 21, 15, .97); border-bottom: 1px solid {accent}; backdrop-filter: none; }}
+    .item-page .brand strong {{ font-size: 18px; }}
+    .item-page .brand span {{ color: #c8c4b7; font-size: 17px; }}
+    .item-page .meta {{ gap: 16px; color: #c8c4b7; }}
+    .item-page .score {{ padding: 8px 12px; font-size: 17px; }}
+    .editorial-hero {{ position: absolute; left: 36px; right: 36px; top: 88px; height: 350px; overflow: hidden; background: #03150f; }}
+    .editorial-hero-copy {{ position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 55%; min-width: 0; padding: 46px 34px 28px 8px; }}
+    .editorial-tags {{ display: flex; gap: 14px; align-items: center; min-height: 36px; overflow: hidden; }}
+    .editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {accent}; border-radius: 3px; color: {accent}; font-size: 16px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: #ebe8dc; font: 900 60px/1.12 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; text-wrap: balance; text-shadow: none; }}
+    .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid rgba(232, 74, 60, .62); color: #aaa99f; font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
+    .editorial-deck::before {{ content: ""; position: absolute; left: 0; top: -2px; width: 42px; height: 3px; background: {accent}; }}
+    .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: #03150f; }}
+    .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; right: 0; top: 0; width: 64%; height: 100%; display: block; object-fit: contain; object-position: right center; filter: saturate(.84) contrast(1.06) brightness(.82); }}
+    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, #03150f 0%, #03150f 40%, rgba(3, 21, 15, .96) 47%, rgba(3, 21, 15, .72) 56%, rgba(3, 21, 15, .28) 66%, rgba(3, 21, 15, 0) 78%); }}
+    .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #244c3d 0, #0b2a20 30%, #03150f 74%); }}
+    .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid rgba(168, 189, 177, .2); background: #071b14; overflow: hidden; }}
+    .insight-symbol {{ position: relative; width: 70px; height: 70px; margin: auto; border: 1px solid rgba(232, 74, 60, .66); border-radius: 50%; }}
+    .insight-symbol::before, .insight-symbol::after {{ content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; }}
+    .insight-symbol::before {{ width: 34px; height: 34px; border: 4px solid {accent}; box-shadow: 0 0 0 7px rgba(232, 74, 60, .12); }}
+    .insight-symbol::after {{ width: 8px; height: 8px; background: {accent}; box-shadow: -25px 0 0 -2px {accent}, 25px 0 0 -2px {accent}, 0 -25px 0 -2px {accent}, 0 25px 0 -2px {accent}; }}
+    .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-right: 1px solid rgba(168, 189, 177, .18); }}
+    .event-index .insight-symbol {{ margin: 0; }}
+    .event-index b {{ color: {accent}; font-size: 15px; line-height: 1; }}
+    .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid rgba(168, 189, 177, .28); }}
+    .agent-lead h2 {{ color: #ebe8dc; font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
+    .agent-body {{ margin: 0; color: #d2d0c7; font: 500 calc(15px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; overflow: hidden; }}
+    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid rgba(168, 189, 177, .2); background: rgba(3, 20, 15, .6); overflow: hidden; }}
+    .mechanism-board:has(.mechanism-strip) {{ background: #07140f; }}
+    .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid rgba(168, 189, 177, .18); }}
+    .section-index strong {{ color: {accent}; font: 800 48px/1 "Noto Sans Mono CJK SC", monospace; }}
+    .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
+    .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 13px; line-height: 1.25; white-space: nowrap; }}
+    .section-index span {{ color: #7f8983; font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
+    .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
+    .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
+    .mechanism-strip {{ position: absolute; inset: 0; margin: 0; overflow: hidden; }}
+    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: contain; object-position: center; filter: saturate(.92) contrast(1.06) brightness(.92); }}
+    .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(2, 15, 11, .34), transparent 31%, transparent 78%, rgba(2, 15, 11, .2)); pointer-events: none; }}
+    .mechanism-step-labels {{ display: none; }}
+    .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid rgba(168, 189, 177, .2); color: #d7d4ca; font: 800 25px/1.4 "Noto Serif CJK SC", serif; text-align: center; }}
+    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 976px; height: 360px; display: grid; grid-template-columns: 48% 52%; border: 1px solid rgba(168, 189, 177, .2); background: rgba(3, 20, 15, .68); overflow: hidden; }}
+    .design-panel, .question-panel {{ display: grid; grid-template-columns: 108px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }}
+    .question-panel {{ border-left: 1px solid rgba(168, 189, 177, .2); }}
+    .design-content, .question-content {{ min-width: 0; padding: 31px 24px 22px; }}
+    .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(20px * var(--copy-scale)); overflow: hidden; }}
+    .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
+    .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(22px * var(--copy-scale)); overflow: hidden; }}
+    .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
+    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: #ebe8dc; font: 800 calc(20px * var(--copy-scale))/1.35 "Noto Serif CJK SC", serif; }}
+    .panel-body {{ color: #c9c8bf; font: 500 calc(15px * var(--copy-scale))/1.68 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: #78847e; font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
+    .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, rgba(232, 74, 60, .65), rgba(123, 147, 135, .28)); }}
+    .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: #9ba8a1; font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
+    .cover-page {{ background: #f0ebdc; color: #0d1814; }}
+    .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: #17382f; }}
+    .cover-page .brand {{ gap: 18px; }}
+    .cover-page .brand strong {{ color: #e24a35; font-size: 25px; }}
+    .cover-page .brand b {{ display: none; }}
+    .cover-page .brand span {{ color: #315c50; font: 800 17px "Noto Sans CJK SC", sans-serif; }}
+    .cover-page .meta {{ color: #0d1814; font-size: 16px; }}
+    .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: #d7ddd2; }}
+    .cover-art img {{ width: 100%; height: 100%; object-fit: cover; object-position: 50% 52%; display: block; filter: saturate(.84) contrast(1.04); }}
+    .cover-art::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #f0ebdc 0%, rgba(240, 235, 220, .94) 6%, rgba(240, 235, 220, .54) 17%, rgba(240, 235, 220, .08) 31%, rgba(23, 56, 47, .02) 76%, rgba(23, 56, 47, .38) 100%); }}
+    .cover-art.no-image {{ background: linear-gradient(160deg, #f0ebdc 0 34%, #d7ddd2 68%, #17382f 100%); }}
+    .cover-art.no-image::after {{ display: none; }}
+    .cover-poster-body {{ position: absolute; z-index: 2; inset: 0; }}
+    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: #0d1814; font: 900 86px/.96 "Noto Serif CJK SC", serif; }}
+    .cover-headline span {{ display: block; }}
+    .cover-headline span + span {{ margin-top: 7px; }}
+    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: #17382f; font: 800 14px "Noto Sans Mono CJK SC", monospace; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
+    .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: #0d1814; border-top: 9px solid #17382f; }}
+    .cover-count-panel strong {{ display: block; font: 900 166px/.72 "Noto Sans Mono CJK SC", monospace; font-variant-numeric: tabular-nums; }}
+    .cover-count-panel span {{ display: block; margin-top: 33px; font: 900 27px/1.14 "Noto Serif CJK SC", serif; }}
+    .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: #f3f0e7; background: #17382f; border-top: 8px solid #c7b75f; }}
+    .cover-summary p {{ max-width: 900px; font: 700 25px/1.48 "Noto Serif CJK SC", serif; }}
+    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid #8da096; color: #e0e3dc; font: 800 15px "Noto Sans Mono CJK SC", monospace; }}
+    .cover-taxonomy span:nth-child(2) {{ text-align: center; }}
+    .cover-taxonomy span:last-child {{ text-align: right; }}
+    .directory-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
+    .directory-title {{ margin-top: 22px; color: #f3f0e7; font: 900 66px/1.08 "Noto Serif CJK SC", serif; }}
+    .directory-lede {{ margin-top: 16px; color: #a5b0a9; font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .directory-body .metrics {{ margin-top: 32px; }}
+    .directory-body .metric {{ min-height: 112px; padding-top: 18px; }}
+    .directory-body .metric strong {{ font-size: 43px; }}
+    .directory-body .metric span {{ margin-top: 10px; font-size: 17px; }}
+    .cover-summary-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
+    .cover-summary-title {{ margin-top: 18px; font: 900 58px/1.12 "Noto Serif CJK SC", serif; color: #f3f0e7; }}
+    .cover-summary-lede {{ margin-top: 16px; color: #a5b0a9; font: 600 21px/1.45 "Noto Serif CJK SC", serif; }}
+    .cover-summary-body .metrics {{ margin-top: 30px; }}
+    .cover-summary-body .metric {{ min-height: 112px; padding-top: 18px; }}
+    .cover-summary-body .metric strong {{ font-size: 43px; }}
+    .cover-summary-body .metric span {{ margin-top: 10px; font-size: 17px; }}
+    .directory-head {{ display: flex; align-items: baseline; justify-content: space-between; margin-top: 28px; padding-bottom: 12px; border-bottom: 1px solid #435048; }}
+    .directory-head strong {{ font: 800 20px "Noto Serif CJK SC", serif; color: #f3f0e7; }}
+    .directory-head span {{ color: #a5b0a9; font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
+    .directory-grid {{ display: grid; gap: 0 30px; margin-top: 4px; }}
+    .directory-column {{ min-width: 0; }}
+    .directory-row {{ display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 58px; border-bottom: 1px solid #303b35; color: #d0d4cf; font-size: 18px; }}
+    .directory-row strong {{ color: {accent}; font: 700 15px "Noto Sans Mono CJK SC", monospace; }}
+    .directory-row span {{ overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }}
+    .directory-grid[data-columns="3"] {{ gap: 0 20px; }}
+    .directory-grid[data-columns="3"] .directory-row {{ grid-template-columns: 30px minmax(0, 1fr); gap: 7px; min-height: 54px; font-size: 16px; }}
+    .directory-grid[data-columns="3"] .directory-row strong {{ font-size: 13px; }}
     .cover-title {{ margin-top: 22px; max-width: 900px; font: 900 78px/1.15 "Noto Serif CJK SC", serif; color: #f2f1e9; }}
     .cover-lede {{ margin-top: 38px; max-width: 860px; color: #c7cec9; font: 600 30px/1.58 "Noto Serif CJK SC", serif; }}
     .cover-count {{ margin-top: 90px; display: flex; align-items: flex-end; gap: 24px; }}
@@ -364,7 +554,7 @@ def _fit_script() -> str:
         document.querySelectorAll('[data-fit-copy]').forEach((copy) => {
           let scale = 1;
           while (copy.scrollHeight > copy.clientHeight && scale > 0.68) {
-            scale -= 0.03;
+            scale -= 0.02;
             copy.style.setProperty('--copy-scale', scale.toFixed(2));
           }
         });
@@ -378,6 +568,12 @@ def _fit_script() -> str:
       };
       fitCopy();
       requestAnimationFrame(fitCopy);
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(() => {
+          fitCopy();
+          requestAnimationFrame(fitCopy);
+        });
+      }
     })();
     </script>
     """
@@ -390,21 +586,27 @@ def _shell(
     index: int,
     total: int,
     score: float | None = None,
+    page_kind: str | None = None,
 ) -> str:
     score_html = (
-        f'<strong class="score">{score:.1f} 分</strong>'
-        if score is not None
-        else ""
+        f'<strong class="score">{score:.1f} 分</strong>' if score is not None else ""
+    )
+    page_class = (
+        f"{page_kind}-page"
+        if page_kind
+        else ("item-page" if score is not None else "cover-page")
     )
     return f"""
-    <main class="page"><div class="content">
+    <main class="page {page_class}" style="--accent: {accent}"><div class="content">
       <div class="top"><div class="brand"><strong>HORIZON</strong><b>/</b><span>游戏创意雷达</span></div><div class="meta"><span>{index:02d} / {total:02d}</span>{score_html}</div></div>
       {content}
     </div></main>
     """
 
 
-def _legacy_build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
+def _legacy_build_card_html(
+    model: dict[str, Any], max_cards: int = 12
+) -> list[dict[str, str]]:
     available_item_pages = max(0, max_cards - 3)
     featured = model["items"][:available_item_pages]
     total = 3 + len(featured)
@@ -528,57 +730,100 @@ def _legacy_build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[
 
 def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
     """Build the unified cinematic report deck used by the daily output."""
-    available_item_pages = max(0, max_cards - 3)
+    available_item_pages = max(0, max_cards - 2)
     featured = model["items"][:available_item_pages]
-    total = 3 + len(featured)
+    total = 2 + len(featured)
     date_label = model["date"].replace("-", ".")
-    lead = model["lead"]
     cards: list[dict[str, str]] = []
 
+    item_count = len(model["items"])
+    directory_columns = 1 if item_count <= 10 else 2 if item_count <= 20 else 3
+    rows_per_column = max(1, (item_count + directory_columns - 1) // directory_columns)
+    directory_columns_html = []
+    for column_index in range(directory_columns):
+        start = column_index * rows_per_column
+        column_items = model["items"][start : start + rows_per_column]
+        rows = "".join(
+            f'<div class="directory-row"><strong>{item_index:02d}</strong><span>{html.escape(_truncate(item["title"], 26 if directory_columns == 1 else 18 if directory_columns == 2 else 12))}</span></div>'
+            for item_index, item in enumerate(column_items, start=start + 1)
+        )
+        directory_columns_html.append(f'<div class="directory-column">{rows}</div>')
+    directory_html = "".join(directory_columns_html)
+
+    lead = model.get("lead") or {}
+    cover_image = model.get("cover_image_url") or lead.get("image_url")
+    if cover_image:
+        cover_art = f'<figure class="cover-art"><img src="{html.escape(cover_image, quote=True)}" alt=""></figure>'
+    else:
+        cover_art = '<div class="cover-art no-image" aria-hidden="true"></div>'
+    if item_count:
+        cover_headline = "<span>从真实世界</span><span>长出游戏</span>"
+        cover_count_label = "个值得偷走的<br>游戏创意"
+        cover_summary_copy = (
+            f"从今日 {model['fetched']} 条现实材料里，寻找机制、世界与叙事<br>"
+            "如何在同一套关系中互相驱动。"
+        )
+    else:
+        cover_headline = "<span>今天不硬凑</span><span>一个发现</span>"
+        cover_count_label = "候选经过深挖<br>全部退稿"
+        cover_summary_copy = html.escape(model["overview"])
     cover_content = f"""
-      <section class="cover-body">
-        <div class="eyebrow">GAME IDEAS RADAR · {html.escape(date_label)}</div>
-        <h1 class="cover-title">{html.escape(model["name"])}</h1>
-        <p class="cover-lede">从真实故事和奇怪现象里，找到值得借用的新鲜关系，以及可以继续追问的游戏问题。</p>
-        <div class="cover-count"><strong>{model["selected"]:02d}</strong><span>条创意线索<br>值得继续追问</span></div>
-        <div class="footer"><span>RSSHub × Horizon × n8n</span><span>{html.escape(date_label)}</span></div>
+      {cover_art}
+      <section class="cover-poster-body">
+        <div class="cover-issue">RELATIONSHIP ECOLOGY · {html.escape(date_label)}</div>
+        <h1 class="cover-headline">{cover_headline}</h1>
+        <div class="cover-count-panel"><strong>{item_count:02d}</strong><span>{cover_count_label}</span></div>
+        <div class="cover-summary">
+          <p>{cover_summary_copy}</p>
+          <div class="cover-taxonomy"><span>MECHANIC</span><span>WORLD</span><span>STORY</span></div>
+        </div>
       </section>
     """
     cards.append(
         {
             "slug": "cover",
             "html": _html_page(
-                _shell(cover_content, accent=model["color"], index=1, total=total),
-                accent=model["color"],
+                _shell(
+                    cover_content,
+                    accent=COVER_ACCENT,
+                    index=1,
+                    total=total,
+                    page_kind="cover",
+                ),
+                accent=COVER_ACCENT,
                 title=model["name"],
             ),
         }
     )
 
-    model_list = "".join(
-        f'<div class="overview-row"><strong>{index:02d}</strong><span>{html.escape(_truncate(item["title"], 34))}</span></div>'
-        for index, item in enumerate(model["items"][:5], start=1)
-    )
-    overview_content = f"""
-      <section class="overview-body">
-        <div class="eyebrow">今日总览</div>
-        <h1 class="overview-title">今天发现了<br>哪些创意线索</h1>
+    directory_content = f"""
+      <section class="directory-body">
+        <div class="eyebrow">CONTENTS · {html.escape(date_label)}</div>
+        <h1 class="directory-title">今天发现了什么</h1>
+        <p class="directory-lede">先把有意思的几条挑出来，再慢慢看细节。</p>
         <div class="metrics">
           <div class="metric"><strong>{model["fetched"]}</strong><span>候选材料</span></div>
           <div class="metric"><strong>{model["selected"]}</strong><span>创意线索</span></div>
           <div class="metric"><strong>{model["source_count"]}</strong><span>灵感来源</span></div>
         </div>
-        <div class="overview-list">{model_list}</div>
-        <div class="footer"><span>今日首选</span><strong>{html.escape(_truncate((lead or {}).get("title", "暂无创意线索"), 42))}</strong></div>
+        <div class="directory-head"><strong>今日创意总览</strong><span>共 {item_count} 条 · 按评分排序</span></div>
+        <div class="directory-grid" data-columns="{directory_columns}" style="grid-template-columns:repeat({directory_columns}, minmax(0, 1fr))">{directory_html}</div>
+        <div class="footer"><span>RSSHub × Horizon × n8n</span><span>完整目录</span></div>
       </section>
     """
     cards.append(
         {
-            "slug": "overview",
+            "slug": "directory",
             "html": _html_page(
-                _shell(overview_content, accent=model["color"], index=2, total=total),
-                accent=model["color"],
-                title="今日总览",
+                _shell(
+                    directory_content,
+                    accent=COVER_ACCENT,
+                    index=2,
+                    total=total,
+                    page_kind="directory",
+                ),
+                accent=COVER_ACCENT,
+                title="今日创意目录",
             ),
         }
     )
@@ -586,26 +831,90 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
     for item_index, item in enumerate(featured, start=1):
         card_index = 2 + item_index
         title = html.escape(item["title"])
+        event_heading_text = item.get("event_heading") or _truncate(
+            item["what_happened"], 28
+        )
+        event_heading = html.escape(event_heading_text)
+        insight_heading = html.escape(
+            item.get("insight_heading")
+            or _truncate(item["fresh_relationship"], 34)
+        )
+        event_copy = html.escape(item.get("what_happened") or "")
+        insight_copy = html.escape(item.get("fresh_relationship") or "")
+        systems_question_copy = html.escape(item.get("systems_question") or "")
+        systems_heading = html.escape(item.get("systems_heading") or "继续追问")
         if item["image_url"]:
-            hero = f'<figure class="hero"><img src="{html.escape(item["image_url"], quote=True)}" alt=""></figure>'
-            layout_class = ""
+            hero_url = html.escape(item["image_url"], quote=True)
+            hero_media = (
+                '<figure class="editorial-hero-media">'
+                f'<img class="media-fit" src="{hero_url}" alt="">'
+                "</figure>"
+            )
         else:
-            hero = '<div class="hero no-image" aria-hidden="true"></div>'
-            layout_class = " no-image"
+            hero_media = (
+                '<div class="editorial-hero-media no-image" aria-hidden="true"></div>'
+            )
+        if item.get("mechanism_image_url"):
+            mechanism_url = html.escape(item["mechanism_image_url"], quote=True)
+            mechanism_visual = (
+                '<figure class="mechanism-strip">'
+                f'<img class="media-fit" src="{mechanism_url}" alt="">'
+                "</figure>"
+            )
+        else:
+            mechanism_visual = f'<div class="mechanism-fallback">{event_heading} → {insight_heading}</div>'
+        systems_question_content = (
+            f'<h2 class="panel-heading">{systems_heading}</h2>'
+            f'<p class="panel-body" data-agent-copy="systems">{systems_question_copy}</p>'
+            if systems_question_copy
+            else ""
+        )
         item_content = f"""
-          {hero}
-          <section class="hero-title{layout_class}">
-            <div class="eyebrow">{html.escape(item["section"])}</div>
-            <h1 class="title" data-fit-title>{title}</h1>
-          </section>
-          <section class="body{layout_class}">
-            <div class="copy" data-fit-copy>
-              <div class="fact"><div class="label">发生了什么</div><p>{html.escape(item["what_happened"])}</p></div>
-              <div class="relation"><div class="label">真正新鲜的关系是什么</div><blockquote>{html.escape(item["fresh_relationship"])}</blockquote></div>
-              <div class="question"><div class="label">它可能启发哪一类游戏问题</div><p>{html.escape(item["game_question"])}</p></div>
+          <section class="editorial-hero">
+            <div class="editorial-hero-copy">
+              <div class="editorial-tags">
+                <span class="editorial-tag">{html.escape(item["section"])}</span>
+              </div>
+              <h1 class="editorial-title" data-fit-title>{title}</h1>
             </div>
-            <div class="footer"><span>{html.escape(item["source"])} · {item["score"]:.1f} 分</span><span>{html.escape(item["published_at"][:10])}</span></div>
+            {hero_media}
           </section>
+          <section class="event-strip" data-field-label="事件">
+            <div class="event-index">
+              <div class="insight-symbol" aria-hidden="true"></div>
+              <b>事件</b>
+            </div>
+            <div class="agent-lead">
+              <h2>{event_heading}</h2>
+            </div>
+            <p class="agent-body event-body" data-agent-copy="event" data-fit-copy>{event_copy}</p>
+          </section>
+          <section class="mechanism-board">
+            <div class="section-index"><strong>01</strong><i></i><b>事件过程</b></div>
+            <div class="mechanism-main">
+              {mechanism_visual}
+            </div>
+          </section>
+          <section class="bottom-board">
+            <div class="design-panel" data-field-label="设计启示">
+              <div class="section-index"><strong>02</strong><i></i><b>设计启示</b></div>
+              <div class="design-content" data-fit-copy>
+                <h2 class="panel-heading">{insight_heading}</h2>
+                <p class="panel-body" data-agent-copy="insight">{insight_copy}</p>
+              </div>
+            </div>
+            <div class="question-panel">
+              <div class="section-index"><strong>03</strong><i></i><b>系统追问</b></div>
+              <div class="question-content" data-fit-copy>
+                {systems_question_content}
+              </div>
+            </div>
+          </section>
+          <div class="editorial-footer">
+            <span>{html.escape(item["source"])} · {item["score"]:.1f} 分</span>
+            <i class="editorial-footer-line"></i>
+            <span>{html.escape(item["published_at"][:10])}</span>
+          </div>
         """
         cards.append(
             {
@@ -613,43 +922,17 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
                 "html": _html_page(
                     _shell(
                         item_content,
-                        accent=item["color"],
+                        accent=PRODUCT_COLOR,
                         index=card_index,
                         total=total,
                         score=item["score"],
                     ),
-                    accent=item["color"],
+                    accent=PRODUCT_COLOR,
                     title=item["title"],
                 ),
             }
         )
 
-    stats = model["stats"]
-    method_index = total
-    method_content = f"""
-      <section class="method-body">
-        <div class="eyebrow">生成方法</div>
-        <h1 class="method-title">一条材料如何<br>变成创意线索</h1>
-        <div class="method-steps">
-          <div class="method-step"><strong>01 抓取</strong><span>RSS / RSSHub 汇集候选信号</span><b>{stats["fetched"]}</b></div>
-          <div class="method-step"><strong>02 评分</strong><span>寻找具体关系、反常和结果</span><b>{stats["scored"]}</b></div>
-          <div class="method-step"><strong>03 筛选</strong><span>留下能形成玩家动作的材料</span><b>{stats["filtered"]}</b></div>
-          <div class="method-step"><strong>04 提炼</strong><span>新鲜关系与开放的游戏问题</span><b>{stats["enriched"]}</b></div>
-        </div>
-        <p class="method-lede">每条创意线索只回答三件事：发生了什么、其中哪段关系真正新鲜、它可以打开哪类游戏问题。图片组展示 {len(featured)} 条，完整 Markdown 保留全部 {model["selected"]} 条。</p>
-        <div class="footer"><span>RSSHub → Horizon → n8n</span><span>{html.escape(date_label)}</span></div>
-      </section>
-    """
-    cards.append(
-        {
-            "slug": "method",
-            "html": _html_page(
-                _shell(method_content, accent=model["color"], index=method_index, total=total),
-                accent=model["color"],
-                title="数据与方法",
-            ),
-        }
-    )
     return cards
 
 
@@ -675,10 +958,21 @@ async def generate_xiaohongshu_report(
 
     markdown_path = report_dir / "report.md"
     markdown_path.write_text(build_markdown(model), encoding="utf-8")
-    featured_count = max(0, max_cards - 3)
-    concept_images = await generate_concept_images(
-        model["items"][:featured_count], report_dir / "concept-images"
+    featured_count = max(0, max_cards - 2)
+    card_visuals, cover_image = await asyncio.gather(
+        CardVisualAgent().generate(model["items"][:featured_count], report_dir),
+        generate_cover_image(
+            model["items"],
+            report_dir / "cover-art",
+            report_date=model["date"],
+            run_id=run_id,
+            fetched_count=model["fetched"],
+        ),
     )
+    concept_images = card_visuals["concept_images"]
+    mechanism_images = card_visuals["mechanism_images"]
+    composition_images = card_visuals["composition_images"]
+    model["cover_image_url"] = cover_image.get("image_url")
     card_specs = build_card_html(model, max_cards=max_cards)
     endpoint = browserless_url or os.getenv(
         "BROWSERLESS_SCREENSHOT_URL", "http://rsshub-browserless:3000/screenshot"
@@ -712,6 +1006,16 @@ async def generate_xiaohongshu_report(
         "card_count": len(rendered),
         "image_size": "1080x1440",
         "concept_images": concept_images,
+        "mechanism_images": mechanism_images,
+        "composition_images": composition_images,
+        "card_visuals": {
+            "complete_items": card_visuals["complete_items"],
+            "orchestrated_items": card_visuals["orchestrated_items"],
+            "requested_items": card_visuals["requested_items"],
+        },
+        "cover_image": {
+            key: value for key, value in cover_image.items() if key != "image_url"
+        },
     }
     (report_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"

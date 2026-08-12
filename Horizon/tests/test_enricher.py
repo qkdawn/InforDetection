@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.ai.enricher import ContentEnricher
+from src.ai.enricher import ContentEnricher, EnrichmentRejected
 from src.models import (
     ClassificationResult,
     ContentAnalysis,
@@ -166,6 +166,171 @@ def test_enrichment_generates_blocks_and_validated_sources():
     assert "Treat the source item as the primary account" in requests[3]["system"]
     assert "https://docs.example.com/project" not in requests[1]["user"]
     assert "https://docs.example.com/project" in requests[3]["user"]
+
+
+def test_game_profile_writes_first_artifact_as_one_editorial_composition():
+    game_profiles = ProfileRegistry.load(
+        Path(__file__).resolve().parents[1] / "profiles", "game-tech-daily"
+    )
+    item = make_item()
+    item.profile = "game-tech-daily"
+    item.processing.classification.profile = "game-tech-daily"
+    responses = iter(
+        [
+            json.dumps(
+                {
+                    "title": "一张牌留下了谁都能抢的条件",
+                    "block": {
+                        "id": "what_happened",
+                        "title": "先看这件事",
+                        "content": "打出的牌会留在桌面并改变下一次出牌。",
+                        "source_refs": ["fact-1-1"],
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "decision": "publish",
+                    "insight": {
+                        "id": "fresh_relationship",
+                        "title": "真正好玩的地方",
+                        "content": "帮助队友的动作也会给对手留下机会。",
+                        "source_refs": ["fresh-1-1"],
+                    },
+                    "rejection_reason": "",
+                }
+            ),
+            json.dumps(
+                {
+                    "question": {
+                        "id": "systems_question",
+                        "title": "再往下问一层",
+                        "content": "当共享条件不断被双方利用时，优势会积累还是自行抵消？",
+                        "source_refs": ["fact-1-1"],
+                    }
+                }
+            ),
+        ]
+    )
+    requests = []
+
+    async def complete(**kwargs):
+        requests.append(kwargs)
+        return next(responses)
+
+    tool_results = [
+        ToolResult(
+            request_id="fact-1",
+            block_id="what_happened",
+            tool="web_search",
+            results=[
+                {
+                    "title": "Rules",
+                    "url": "https://example.com/rules",
+                    "text": "Cards remain in a shared area.",
+                }
+            ],
+        ),
+        ToolResult(
+            request_id="fresh-1",
+            block_id="fresh_relationship",
+            tool="web_search",
+            results=[
+                {
+                    "title": "Design notes",
+                    "url": "https://example.com/notes",
+                    "text": "Both teams can use the condition.",
+                }
+            ],
+        ),
+    ]
+    enricher = ContentEnricher(
+        SimpleNamespace(complete=complete),
+        game_profiles,
+        ["zh"],
+        tools=FakeTools(),
+    )
+
+    generated = asyncio.run(
+        enricher._generate_artifact(
+            item, game_profiles.get("game-tech-daily"), "zh", tool_results
+        )
+    )
+
+    assert len(requests) == 3
+    assert "以体验为中心的游戏设计编辑" in requests[0]["system"]
+    assert "what_happened" in requests[0]["system"]
+    assert "事件叙述" in requests[0]["system"]
+    assert "你是第二位编辑" in requests[1]["system"]
+    assert "选择、代价、限制、反馈和不确定性" in requests[1]["system"]
+    assert "系统追问者" in requests[2]["system"]
+    assert "开放复杂巨系统" in requests[2]["system"]
+    assert "# Event narration from the first editor" in requests[1]["user"]
+    assert "# Event narration from the first editor" in requests[2]["user"]
+    assert "# Core discovery from the second editor" in requests[2]["user"]
+    assert "https://example.com/rules" in requests[0]["user"]
+    assert "https://example.com/notes" in requests[0]["user"]
+    assert "https://example.com/notes" in requests[1]["user"]
+    assert "https://example.com/rules" in requests[2]["user"]
+    assert [block.id for block in generated.blocks] == [
+        "what_happened",
+        "fresh_relationship",
+        "systems_question",
+    ]
+    assert generated.blocks[0].primary is True
+    assert generated.blocks[0].title == "先看这件事"
+    assert generated.blocks[0].content.endswith("下一次出牌。")
+    assert generated.blocks[1].title == "真正好玩的地方"
+    assert generated.blocks[1].content.endswith("留下机会。")
+    assert generated.blocks[2].content.endswith("自行抵消？")
+
+
+def test_game_profile_can_reject_when_no_core_discovery_is_defensible():
+    game_profiles = ProfileRegistry.load(
+        Path(__file__).resolve().parents[1] / "profiles", "game-tech-daily"
+    )
+    item = make_item()
+    item.profile = "game-tech-daily"
+    item.processing.classification.profile = "game-tech-daily"
+    responses = iter(
+        [
+            json.dumps(
+                {
+                    "title": "一件普通的发布",
+                    "block": {
+                        "id": "what_happened",
+                        "title": "先看这件事",
+                        "content": "项目发布了一个常规版本。",
+                        "source_refs": [],
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "decision": "reject",
+                    "insight": None,
+                    "rejection_reason": "只能得到适用于任何发布的通用结论。",
+                }
+            ),
+        ]
+    )
+
+    async def complete(**kwargs):
+        return next(responses)
+
+    enricher = ContentEnricher(
+        SimpleNamespace(complete=complete),
+        game_profiles,
+        ["zh"],
+        tools=FakeTools(),
+    )
+
+    with pytest.raises(EnrichmentRejected, match="通用结论"):
+        asyncio.run(
+            enricher._generate_artifact(
+                item, game_profiles.get("game-tech-daily"), "zh", []
+            )
+        )
 
 
 def test_enrichment_rejects_tool_on_unapproved_block():
@@ -526,3 +691,28 @@ def test_enrichment_batch_reports_failure_without_discarding_successes():
     assert result.succeeded_ids == [successful_item.id]
     assert result.failed_ids == [failed_item.id]
     assert result.failures[failed_item.id] == "RuntimeError: AI unavailable"
+
+
+def test_enrichment_batch_keeps_editorial_rejections_separate_from_failures():
+    accepted_item = make_item()
+    rejected_item = make_item().model_copy(update={"id": "rss:test:rejected"})
+    enricher = ContentEnricher(
+        SimpleNamespace(complete=None),
+        PROFILES,
+        ["zh"],
+        tools=FakeTools(),
+    )
+
+    async def enrich_item(item):  # type: ignore[no-untyped-def]
+        if item.id == rejected_item.id:
+            raise EnrichmentRejected("发现依赖通用联想")
+
+    enricher._enrich_item = enrich_item  # type: ignore[method-assign]
+
+    result = asyncio.run(enricher.enrich_batch([accepted_item, rejected_item]))
+
+    assert result.status == "success"
+    assert result.succeeded_ids == [accepted_item.id]
+    assert result.rejected_ids == [rejected_item.id]
+    assert result.rejections[rejected_item.id] == "发现依赖通用联想"
+    assert result.failures == {}

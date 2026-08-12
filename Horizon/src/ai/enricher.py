@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Literal, Optional, TypeVar
 
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from rich.console import Console
@@ -24,7 +24,11 @@ from .prompting.enrichment import (
     MAX_TOOL_REQUESTS,
     artifact_prompt,
     block_prompt,
+    editorial_tool_results_text,
+    event_narration_prompt,
+    game_insight_prompt,
     item_context,
+    systems_question_prompt,
     tool_planning_prompt,
     tool_results_text,
 )
@@ -84,9 +88,50 @@ class GeneratedBlockWithHeader(GeneratedBlock):
         return value
 
 
+class GeneratedInsight(BaseModel):
+    decision: Literal["publish", "reject"]
+    insight: Optional[ContentBlock] = None
+    rejection_reason: str = ""
+
+    @model_validator(mode="after")
+    def validate_decision(self) -> "GeneratedInsight":
+        if self.decision == "publish":
+            if self.insight is None:
+                raise ValueError("publish requires an insight")
+            if not self.insight.title.strip() or not self.insight.content.strip():
+                raise ValueError("published insight must not be empty")
+            if self.rejection_reason.strip():
+                raise ValueError("publish must not include a rejection reason")
+        else:
+            if self.insight is not None:
+                raise ValueError("reject must not include an insight")
+            if not self.rejection_reason.strip():
+                raise ValueError("reject requires a rejection reason")
+        return self
+
+
+class GeneratedSystemsQuestion(BaseModel):
+    question: ContentBlock
+
+    @model_validator(mode="after")
+    def validate_question(self) -> "GeneratedSystemsQuestion":
+        if not self.question.title.strip() or not self.question.content.strip():
+            raise ValueError("systems question must not be empty")
+        return self
+
+
+class EnrichmentRejected(Exception):
+    """A valid editorial decision that excludes an item from publication."""
+
+    def __init__(self, reason: str):
+        self.reason = reason.strip()
+        super().__init__(self.reason)
+
+
 @dataclass
 class EnrichmentBatchResult:
     succeeded_ids: list[str] = field(default_factory=list)
+    rejections: dict[str, str] = field(default_factory=dict)
     failures: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -98,16 +143,24 @@ class EnrichmentBatchResult:
         return len(self.failures)
 
     @property
+    def rejected_count(self) -> int:
+        return len(self.rejections)
+
+    @property
+    def rejected_ids(self) -> list[str]:
+        return list(self.rejections)
+
+    @property
     def failed_ids(self) -> list[str]:
         return list(self.failures)
 
     @property
     def status(self) -> str:
-        if not self.failures:
-            return "success"
-        if self.succeeded_ids:
+        if self.failures and (self.succeeded_ids or self.rejections):
             return "partial_failure"
-        return "failure"
+        if self.failures:
+            return "failure"
+        return "success"
 
 
 class ContentEnricher:
@@ -183,16 +236,19 @@ class ContentEnricher:
 
         async def process(
             item: ContentItem, task_id: TaskID
-        ) -> tuple[str, Optional[Exception]]:
+        ) -> tuple[str, Optional[Exception], Optional[str]]:
             async with semaphore:
                 try:
                     await self._enrich_item(item)
+                except EnrichmentRejected as exc:
+                    logger.info("Editorially rejected item %s: %s", item.id, exc.reason)
+                    return item.id, None, exc.reason
                 except Exception as exc:
                     logger.error("Error enriching item %s: %s", item.id, exc)
-                    return item.id, exc
+                    return item.id, exc, None
                 finally:
                     progress.advance(task_id)
-            return item.id, None
+            return item.id, None, None
 
         with Progress(
             SpinnerColumn(),
@@ -206,10 +262,19 @@ class ContentEnricher:
             outcomes = await asyncio.gather(*(process(item, task_id) for item in items))
 
         return EnrichmentBatchResult(
-            succeeded_ids=[item_id for item_id, exc in outcomes if exc is None],
+            succeeded_ids=[
+                item_id
+                for item_id, exc, rejection in outcomes
+                if exc is None and rejection is None
+            ],
+            rejections={
+                item_id: rejection
+                for item_id, exc, rejection in outcomes
+                if exc is None and rejection is not None
+            },
             failures={
                 item_id: f"{type(exc).__name__}: {exc}"
-                for item_id, exc in outcomes
+                for item_id, exc, rejection in outcomes
                 if exc is not None
             },
         )
@@ -278,14 +343,18 @@ class ContentEnricher:
         if not any(allowed.values()):
             return []
 
+        preloaded = self._research_tool_results(item, profile)
+
         plan = await self._complete_model(
             ToolPlan,
-            system=tool_planning_prompt(profile.definition.enrichment.blocks),
+            system=tool_planning_prompt(
+                profile, profile.definition.enrichment.blocks
+            ),
             user=item_context(item, profile, include_content=True),
             error_message="Invalid enrichment tool plan",
         )
 
-        results = []
+        results = list(preloaded)
         seen = set()
         for request in plan.tool_requests[:MAX_TOOL_REQUESTS]:
             if request.block_id not in allowed:
@@ -308,6 +377,44 @@ class ContentEnricher:
             )
         return results
 
+    @staticmethod
+    def _research_tool_results(
+        item: ContentItem, profile: LoadedProfile
+    ) -> list[ToolResult]:
+        """Expose the independent research stage as citation-ready tool results."""
+        research = item.metadata.get("mechanism_research")
+        if not isinstance(research, dict):
+            return []
+        requests = research.get("requests")
+        if not isinstance(requests, list):
+            return []
+        results: list[ToolResult] = []
+        for block in profile.definition.enrichment.blocks:
+            if "web_search" not in block.tools:
+                continue
+            for index, request in enumerate(requests, start=1):
+                if not isinstance(request, dict) or not isinstance(request.get("results"), list):
+                    continue
+                entries = [
+                    {
+                        "title": str(entry.get("title", "")),
+                        "url": str(entry.get("url", "")),
+                        "text": str(entry.get("text", "")),
+                    }
+                    for entry in request["results"]
+                    if isinstance(entry, dict) and entry.get("url")
+                ]
+                if entries:
+                    results.append(
+                        ToolResult(
+                            request_id=f"research-{block.id}-{index}",
+                            block_id=block.id,
+                            tool="web_search",
+                            results=entries,
+                        )
+                    )
+        return results
+
     async def _generate_artifact(
         self,
         item: ContentItem,
@@ -316,6 +423,11 @@ class ContentEnricher:
         tool_results: list[ToolResult],
     ) -> GeneratedArtifact:
         configured_blocks = profile.definition.enrichment.blocks
+        if profile.insight_prompt:
+            return await self._generate_editorial_artifact(
+                item, profile, language, tool_results
+            )
+
         result_block_ids = {result.block_id for result in tool_results}
         base_blocks = [
             block for block in configured_blocks if block.id not in result_block_ids
@@ -438,6 +550,165 @@ class ContentEnricher:
             generated_block.primary = configured_by_id[generated_block.id].primary
         return GeneratedArtifact(title=title, blocks=blocks)
 
+    async def _generate_editorial_artifact(
+        self,
+        item: ContentItem,
+        profile: LoadedProfile,
+        language: str,
+        tool_results: list[ToolResult],
+    ) -> GeneratedArtifact:
+        configured_blocks = profile.definition.enrichment.blocks
+        event_blocks = [block for block in configured_blocks if block.primary]
+        if len(event_blocks) != 1:
+            raise ValueError("Editorial two-pass generation requires one primary event block")
+        event_block = event_blocks[0]
+        insight_block_id = profile.definition.enrichment.insight_block
+        if not insight_block_id:
+            raise ValueError("Editorial two-pass generation requires an insight block")
+        configured_by_id = {block.id: block for block in configured_blocks}
+        insight_block = configured_by_id[insight_block_id]
+        systems_block = None
+        if profile.systems_prompt:
+            systems_block_id = profile.definition.enrichment.systems_block
+            if not systems_block_id:
+                raise ValueError(
+                    "Editorial staged generation requires a systems question block"
+                )
+            systems_block = configured_by_id[systems_block_id]
+        reference_text = editorial_tool_results_text(tool_results)
+        event_generated = await self._complete_model(
+            GeneratedBlockWithHeader,
+            system=event_narration_prompt(profile, language, event_block),
+            user=(
+                item_context(
+                    item,
+                    profile,
+                    include_content=True,
+                    include_research=False,
+                )
+                + "\n\n# Collected reference results\n\n"
+                + reference_text
+            ),
+            error_message="Invalid event narration artifact",
+            validator=lambda generated: self._validate_event_block(
+                generated, event_block.id
+            ),
+        )
+
+        event = event_generated.block
+        if event is None:
+            raise ValueError("Event narration must include the required event block")
+        event.primary = event_block.primary
+
+        insight_generated = await self._complete_model(
+            GeneratedInsight,
+            system=game_insight_prompt(profile, language, insight_block),
+            user=(
+                item_context(
+                    item,
+                    profile,
+                    include_content=True,
+                    include_research=False,
+                )
+                + "\n\n# Event narration from the first editor\n\n"
+                + json.dumps(
+                    {
+                        "title": event_generated.title,
+                        "content": event.content,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n# Collected reference results\n\n"
+                + reference_text
+            ),
+            error_message="Invalid game design insight artifact",
+            validator=lambda generated: self._validate_insight_blocks(
+                generated, insight_block.id
+            ),
+        )
+        if insight_generated.decision == "reject":
+            raise EnrichmentRejected(insight_generated.rejection_reason)
+
+        insight = insight_generated.insight
+        if insight is None:
+            raise ValueError("Published editorial decision is missing its insight")
+        by_id = {event.id: event}
+        by_id[insight.id] = insight
+        if systems_block is not None:
+            systems_generated = await self._complete_model(
+                GeneratedSystemsQuestion,
+                system=systems_question_prompt(profile, language, systems_block),
+                user=(
+                    item_context(
+                        item,
+                        profile,
+                        include_content=True,
+                        include_research=False,
+                    )
+                    + "\n\n# Event narration from the first editor\n\n"
+                    + json.dumps(
+                        {
+                            "title": event_generated.title,
+                            "content": event.content,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n# Core discovery from the second editor\n\n"
+                    + json.dumps(
+                        {
+                            "title": insight.title,
+                            "content": insight.content,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n# Collected reference results\n\n"
+                    + reference_text
+                ),
+                error_message="Invalid systems question artifact",
+                validator=lambda generated: self._validate_systems_question(
+                    generated, systems_block.id
+                ),
+            )
+            by_id[systems_generated.question.id] = systems_generated.question
+        blocks = [
+            by_id[block.id]
+            for block in configured_blocks
+            if block.id in by_id
+        ]
+        for block in blocks:
+            block.primary = configured_by_id[block.id].primary
+        return GeneratedArtifact(title=event_generated.title, blocks=blocks)
+
+    @staticmethod
+    def _validate_event_block(
+        generated: GeneratedBlockWithHeader, expected_id: str
+    ) -> None:
+        if generated.block is None:
+            raise ValueError(f"missing required block: {expected_id}")
+        if generated.block.id != expected_id:
+            raise ValueError(
+                f"block ID {generated.block.id} does not match {expected_id}"
+            )
+
+    @staticmethod
+    def _validate_insight_blocks(
+        generated: GeneratedInsight, expected_id: str
+    ) -> None:
+        if generated.decision == "publish" and generated.insight:
+            if generated.insight.id != expected_id:
+                raise ValueError(
+                    f"insight block ID {generated.insight.id} does not match {expected_id}"
+                )
+
+    @staticmethod
+    def _validate_systems_question(
+        generated: GeneratedSystemsQuestion, expected_id: str
+    ) -> None:
+        if generated.question.id != expected_id:
+            raise ValueError(
+                f"systems question block ID {generated.question.id} does not match {expected_id}"
+            )
+
     @staticmethod
     def _sources_from_tool_results(
         results: list[ToolResult],
@@ -471,10 +742,14 @@ class ContentEnricher:
             seen.add(block.id)
             if not block.title.strip() or not block.content.strip():
                 raise ValueError(f"Artifact block {block.id} cannot be empty")
+            result_scope = (
+                tool_results
+                if profile.editorial_prompt
+                else [result for result in tool_results if result.block_id == block.id]
+            )
             block_source_ids = {
                 f"{result.request_id}-{index}"
-                for result in tool_results
-                if result.block_id == block.id
+                for result in result_scope
                 for index, _ in enumerate(result.results, start=1)
             }
             unknown_refs = set(block.source_refs) - block_source_ids

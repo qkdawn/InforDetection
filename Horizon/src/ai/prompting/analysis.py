@@ -13,7 +13,12 @@ ANALYSIS_RULES = f"""You are a content curator evaluating an item under the supp
 
 
 def analysis_system_prompt(profile: LoadedProfile) -> str:
-    return f"""{ANALYSIS_RULES}
+    editorial_context = (
+        f"\n\n# Editorial stance\n\n{profile.editorial_prompt}"
+        if profile.editorial_prompt
+        else ""
+    )
+    return f"""{ANALYSIS_RULES}{editorial_context}
 
 # Profile policy
 
