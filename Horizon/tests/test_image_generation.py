@@ -46,16 +46,22 @@ def test_concept_prompt_uses_all_three_report_blocks() -> None:
     assert "watermarks" in prompt
 
 
-def test_mechanism_prompt_visualizes_the_event_process_as_one_panorama() -> None:
+def test_mechanism_prompt_visualizes_the_event_as_a_bottom_storyboard_ribbon() -> None:
     prompt = build_mechanism_prompt(_item())
 
     assert "makes the source event's process visible" in prompt
     assert "event-process visual agent" in prompt
     assert "how it actually unfolded" in prompt
     assert "objects, materials, environments" in prompt
-    assert "hand-painted gouache with sparse ink" in prompt
+    assert "hand-painted gouache and watercolor" in prompt
     assert "tactile pigment" in prompt
-    assert "subject establish its own color world" in prompt
+    assert "five to seven equal vertical panels" in prompt
+    assert "lower 50 percent" in prompt
+    assert "report will crop" in prompt
+    assert "five percent at both the left and right edges" in prompt
+    assert "must sit fully inside those margins" in prompt
+    assert "Do not render titles, captions" in prompt
+    assert "single undivided panorama" in prompt
     assert "deep charcoal-green field" not in prompt
     assert "coral red" not in prompt
     assert "1536x512" not in prompt
@@ -64,7 +70,6 @@ def test_mechanism_prompt_visualizes_the_event_process_as_one_panorama() -> None
     assert "空间边界同时成为时间边界" not in prompt
     assert "玩家跨过边界 -> 季节状态改变 -> 路线价值翻转" not in prompt
     assert "Mechanism chain:" not in prompt
-    assert "Avoid:" not in prompt
 
 
 def test_mechanism_prompt_does_not_require_a_written_chain() -> None:
@@ -77,6 +82,7 @@ def test_mechanism_prompt_does_not_require_a_written_chain() -> None:
     assert "空间边界同时成为时间边界" not in prompt
     assert "Mechanism chain:" not in prompt
     assert "hand-painted gouache" in prompt
+    assert "five to seven readable moments" in prompt
     assert "deep charcoal-green" not in prompt
 
 

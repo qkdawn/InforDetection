@@ -446,8 +446,8 @@ def _base_css(accent: str) -> str:
     .section-index span {{ color: #7f8983; font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
-    .mechanism-strip {{ position: absolute; inset: 0; margin: 0; overflow: hidden; }}
-    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: contain; object-position: center; filter: saturate(.92) contrast(1.06) brightness(.92); }}
+    .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid rgba(32, 55, 47, .2); border-radius: 4px; background: #e8dfcc; }}
+    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 100%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
     .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(2, 15, 11, .34), transparent 31%, transparent 78%, rgba(2, 15, 11, .2)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
     .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid rgba(168, 189, 177, .2); color: #d7d4ca; font: 800 25px/1.4 "Noto Serif CJK SC", serif; text-align: center; }}
@@ -467,6 +467,30 @@ def _base_css(accent: str) -> str:
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
     .cover-page {{ background: #f0ebdc; color: #0d1814; }}
+    .item-page {{ background: #eee7d5; color: #20372f; }}
+    .item-page .top {{ background: rgba(238, 231, 213, .96); color: #20372f; border-bottom-color: rgba(32, 55, 47, .28); }}
+    .item-page .brand, .item-page .brand span, .item-page .meta {{ color: #20372f; }}
+    .item-page .editorial-hero {{ background: #e5dcc8; border: 1px solid rgba(32, 55, 47, .22); }}
+    .item-page .editorial-hero-media {{ background: #ddd3bc; }}
+    .item-page .editorial-hero-media::after {{ background: linear-gradient(90deg, #eee7d5 0%, #eee7d5 40%, rgba(238, 231, 213, .97) 47%, rgba(238, 231, 213, .75) 56%, rgba(238, 231, 213, .3) 67%, rgba(238, 231, 213, 0) 80%); }}
+    .item-page .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, #eee7d5 76%); }}
+    .item-page .editorial-title {{ color: #17382f; text-shadow: none; }}
+    .item-page .editorial-deck {{ color: #596860; }}
+    .item-page .event-strip {{ border-color: rgba(32, 55, 47, .25); background: #e8dfcc; }}
+    .item-page .agent-lead h2 {{ color: #17382f; }}
+    .item-page .agent-body {{ color: #3e5048; }}
+    .item-page .mechanism-board {{ border-color: rgba(32, 55, 47, .25); background: #e3dac6; }}
+    .item-page .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
+    .item-page .section-index {{ border-right-color: rgba(32, 55, 47, .22); }}
+    .item-page .section-index span {{ color: #66766e; }}
+    .item-page .mechanism-strip::after {{ background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); }}
+    .item-page .mechanism-fallback {{ border-color: rgba(32, 55, 47, .24); color: #20372f; background: #e4dbc7; }}
+    .item-page .bottom-board {{ border-color: rgba(32, 55, 47, .25); background: #e8dfcc; }}
+    .item-page .question-panel {{ border-left-color: rgba(32, 55, 47, .22); }}
+    .item-page .panel-heading {{ color: #17382f; }}
+    .item-page .panel-body {{ color: #3e5048; }}
+    .item-page .editorial-footer {{ color: #596860; }}
+    .item-page .editorial-footer-line {{ background: linear-gradient(90deg, rgba(232, 74, 60, .72), rgba(32, 55, 47, .26)); }}
     .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: #17382f; }}
     .cover-page .brand {{ gap: 18px; }}
     .cover-page .brand strong {{ color: #e24a35; font-size: 25px; }}

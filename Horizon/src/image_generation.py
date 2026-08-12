@@ -247,13 +247,13 @@ def build_concept_prompt(item: dict[str, Any]) -> str:
 
 
 def build_mechanism_prompt(item: dict[str, Any]) -> str:
-    """Turn the reported event into one source-grounded visual process."""
+    """Turn the reported event into a source-grounded storyboard ribbon."""
     return "\n".join(
         [
             "Use case: stylized-concept",
             (
-                "Asset type: a full-bleed panoramic editorial image that makes the "
-                "source event's process visible"
+                "Asset type: a horizontal editorial storyboard ribbon that makes the "
+                "source event's process visible through adjacent moments"
             ),
             f"Editorial subject: {item.get('title', '')}",
             "Event to visualize:",
@@ -261,22 +261,44 @@ def build_mechanism_prompt(item: dict[str, Any]) -> str:
             (
                 "Role: act as the event-process visual agent. Reconstruct the concrete sequence "
                 "inside the report: who or what acts first, what changes, what is revealed or "
-                "withheld, and what state exists at the end. Decide how this particular event can "
-                "be understood most clearly as one continuous visual journey."
+                "withheld, and what state exists at the end. Divide that sequence into five to "
+                "seven readable moments arranged from left to right."
             ),
             (
                 "Truth and imagination: keep the people, objects, materials, environments, and "
                 "actions recognizable and grounded in the source. Follow the event's own logic and "
-                "choose the moments, viewpoint, spatial connection, traces, repetition, or material "
-                "transformation that best reveal how it actually unfolded."
+                "use consistent characters, objects, weather, and geography across every panel. "
+                "Choose the moments, viewpoint, traces, repetition, or material transformation "
+                "that best reveal how it actually unfolded."
             ),
             (
-                "Art direction: concise editorial game-design illustration, hand-painted gouache "
-                "with sparse ink, strong silhouettes, tactile pigment, selective detail, and visibly "
-                "authored marks. Let the subject establish its own color world while keeping the "
-                "atmosphere mysterious and materially grounded in the source."
+                "Composition: make the lower 50 percent of the returned canvas the primary "
+                "deliverable: one uninterrupted, very wide strip of five to seven equal vertical "
+                "panels separated by fine ink rules. Each panel shows one distinct action or state, "
+                "with a clear left-to-right rhythm like an illustrated field notebook. Keep all "
+                "essential figures and actions inside this lower strip because the report will crop "
+                "and display only that area. The upper canvas may extend the same environment but "
+                "must contain no essential step. Leave a continuous warm-paper safety margin of "
+                "about five percent at both the left and right edges. The first and final panel "
+                "borders, figures, and objects must sit fully inside those margins rather than "
+                "touching or continuing beyond the canvas edge."
             ),
-            "Deliver a publication-ready pure visual artwork whose meaning is carried by the image.",
+            (
+                "Art direction: concise editorial game-design illustration on warm weathered paper, "
+                "hand-painted gouache and watercolor with sparse graphite or ink, strong silhouettes, "
+                "tactile pigment, selective detail, and visibly authored marks. Let the subject establish "
+                "its own restrained color world while keeping every panel visually coherent."
+            ),
+            (
+                "Constraints: pure visual storytelling. Do not render titles, captions, prose, labels, "
+                "letters, numbers, logos, watermarks, UI, charts, or explanatory typography. Do not "
+                "make a single undivided panorama, a comic page with speech balloons, or a grid with "
+                "multiple rows."
+            ),
+            (
+                "Deliver a publication-ready image whose cropped lower storyboard ribbon remains "
+                "complete and understandable on its own."
+            ),
         ]
     )
 

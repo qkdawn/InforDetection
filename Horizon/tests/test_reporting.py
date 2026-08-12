@@ -218,7 +218,7 @@ def test_empty_report_explains_that_all_candidates_were_rejected():
     assert "今天不硬凑" in cards[0]["html"]
 
 
-def test_card_uses_generated_mechanism_visual_as_a_full_bleed_strip():
+def test_card_crops_the_generated_mechanism_visual_to_its_bottom_storyboard_strip():
     model = build_report_model(
         run_id="run-mechanism-art",
         items=[_item("a", 9)],
@@ -230,10 +230,28 @@ def test_card_uses_generated_mechanism_visual_as_a_full_bleed_strip():
 
     assert card.count('class="mechanism-strip"') == 1
     assert card.count("data:image/png;base64,MECHANISM-ART") == 1
-    assert "object-fit: contain" in card
-    assert ".mechanism-strip { position: absolute; inset: 0" in card
+    assert "object-fit: cover" in card
+    assert "object-position: 50% 100%" in card
+    assert ".mechanism-strip { position: absolute; inset: 12px 14px" in card
+    assert "border-radius: 4px" in card
     assert 'class="media-fit"' in card
     assert 'class="mechanism-fallback"' not in card
+
+
+def test_item_card_uses_a_warm_paper_background_palette():
+    model = build_report_model(
+        run_id="run-warm-paper-card",
+        items=[_item("a", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert ".item-page { background: #eee7d5" in card
+    assert ".item-page .editorial-title { color: #17382f" in card
+    assert ".item-page .event-strip" in card
+    assert "background: #e8dfcc" in card
+    assert ".item-page .bottom-board" in card
 
 
 def test_card_ignores_legacy_composition_image_layer():
