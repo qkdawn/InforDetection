@@ -262,6 +262,22 @@ def test_item_card_uses_a_warm_paper_background_palette():
     assert ".bottom-board {" in card
 
 
+def test_item_card_body_type_is_readable_at_thumbnail_size():
+    model = build_report_model(
+        run_id="run-readable-type",
+        items=[_item("type", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert "calc(25px * var(--copy-scale))/1.3" in card
+    assert "calc(22px * var(--copy-scale))/1.32" in card
+    assert "calc(17px * var(--copy-scale))/1.58" in card
+    assert "calc(17px * var(--copy-scale))/1.62" in card
+    assert "size > 42" in card
+
+
 def test_report_css_contains_no_legacy_dark_green_theme_tokens():
     model = build_report_model(
         run_id="run-paper-only-theme",

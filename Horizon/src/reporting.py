@@ -461,17 +461,17 @@ def _base_css(accent: str) -> str:
     .insight-symbol::after {{ width: 8px; height: 8px; background: {accent}; box-shadow: -25px 0 0 -2px {accent}, 25px 0 0 -2px {accent}, 0 -25px 0 -2px {accent}, 0 25px 0 -2px {accent}; }}
     .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .event-index .insight-symbol {{ margin: 0; }}
-    .event-index b {{ color: {accent}; font-size: 15px; line-height: 1; }}
+    .event-index b {{ color: {accent}; font-size: 16px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 800 calc(25px * var(--copy-scale))/1.3 "Noto Serif CJK SC", "Microsoft YaHei UI", serif; }}
-    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 500 calc(15px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 500 calc(17px * var(--copy-scale))/1.58 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; overflow: hidden; }}
     .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .section-index strong {{ color: {accent}; font: 800 48px/1 "Noto Sans Mono CJK SC", monospace; }}
     .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
-    .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 13px; line-height: 1.25; white-space: nowrap; }}
+    .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 14px; line-height: 1.25; white-space: nowrap; }}
     .section-index span {{ color: var(--muted); font: 500 11px/1.55 "Noto Sans Mono CJK SC", monospace; text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
@@ -488,9 +488,9 @@ def _base_css(accent: str) -> str:
     .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
     .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(22px * var(--copy-scale)); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 800 calc(20px * var(--copy-scale))/1.35 "Noto Serif CJK SC", serif; }}
-    .panel-body {{ color: var(--muted); font: 500 calc(15px * var(--copy-scale))/1.68 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
-    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 13px "Noto Sans Mono CJK SC", monospace; }}
+    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 800 calc(22px * var(--copy-scale))/1.32 "Noto Serif CJK SC", serif; }}
+    .panel-body {{ color: var(--muted); font: 500 calc(17px * var(--copy-scale))/1.62 "Microsoft YaHei UI", "PingFang SC", sans-serif; }}
+    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
     .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 65%, transparent), color-mix(in srgb, var(--ink) 24%, transparent)); }}
     .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px "Noto Sans Mono CJK SC", monospace; }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
