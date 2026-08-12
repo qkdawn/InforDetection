@@ -157,6 +157,28 @@ async def _fetch_stage(options: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _replay_stage(options: dict[str, Any]) -> dict[str, Any]:
+    source_run_id = options.get("source_run_id")
+    item_url = options.get("item_url")
+    if not isinstance(source_run_id, str) or not source_run_id.strip():
+        raise ValueError("source_run_id must be a non-empty string")
+    if not isinstance(item_url, str) or not item_url.strip():
+        raise ValueError("item_url must be a non-empty string")
+
+    replay = HorizonPipelineService().replay_item(
+        source_run_id=source_run_id.strip(),
+        item_url=item_url.strip(),
+    )
+    return {
+        "ok": True,
+        "run_id": replay["run_id"],
+        "stage": "raw",
+        "source_run_id": replay["source_run_id"],
+        "item": replay["item"],
+        "stats": {"fetch": replay},
+    }
+
+
 async def _score_stage(options: dict[str, Any]) -> dict[str, Any]:
     run_id = _require_run_id(options)
     service = HorizonPipelineService()
@@ -561,6 +583,7 @@ async def _psychology_render_stage(options: dict[str, Any]) -> dict[str, Any]:
 
 _POST_ROUTES = {
     "/fetch": _fetch_stage,
+    "/replay": _replay_stage,
     "/score": _score_stage,
     "/filter": _filter_stage,
     "/research": _research_stage,

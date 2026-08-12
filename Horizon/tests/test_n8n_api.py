@@ -26,6 +26,21 @@ class FakeService:
         self.calls.append(("fetch", kwargs))
         return {"run_id": "run-1", "fetched": self.raw_count}
 
+    def replay_item(self, **kwargs):
+        self.calls.append(("replay", kwargs))
+        return {
+            "run_id": "run-replay",
+            "source_run_id": kwargs["source_run_id"],
+            "fetched": 1,
+            "item": {
+                "id": "item-1",
+                "title": "Replayed item",
+                "url": kwargs["item_url"],
+                "source_type": "rss",
+                "published_at": "2026-08-08T00:00:00Z",
+            },
+        }
+
     async def score_items(self, **kwargs):
         self.calls.append(("score", kwargs))
         return {"run_id": kwargs["run_id"], "scored": self.raw_count}
@@ -96,6 +111,45 @@ def test_fetch_stage_forwards_explicit_seen_dedup_override(monkeypatch):
             },
         )
     ]
+
+
+def test_replay_stage_creates_single_item_raw_run(monkeypatch):
+    service = FakeService()
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+
+    result = asyncio.run(
+        n8n_api._replay_stage(
+            {
+                "source_run_id": "run-source",
+                "item_url": "https://example.com/item-1",
+            }
+        )
+    )
+
+    assert result["run_id"] == "run-replay"
+    assert result["stage"] == "raw"
+    assert result["item"]["title"] == "Replayed item"
+    assert service.calls == [
+        (
+            "replay",
+            {
+                "source_run_id": "run-source",
+                "item_url": "https://example.com/item-1",
+            },
+        )
+    ]
+
+
+@pytest.mark.parametrize("missing", ["source_run_id", "item_url"])
+def test_replay_stage_requires_source_run_and_url(missing):
+    options = {
+        "source_run_id": "run-source",
+        "item_url": "https://example.com/item-1",
+    }
+    options.pop(missing)
+
+    with pytest.raises(ValueError, match=missing):
+        asyncio.run(n8n_api._replay_stage(options))
 
 
 def test_fetch_stage_routes_shared_sources_by_content(monkeypatch):
@@ -174,6 +228,7 @@ def test_filter_and_enrich_return_stage_results(monkeypatch):
 def test_stage_routes_and_validation():
     assert set(n8n_api._POST_ROUTES) == {
         "/fetch",
+        "/replay",
         "/score",
         "/filter",
         "/research",

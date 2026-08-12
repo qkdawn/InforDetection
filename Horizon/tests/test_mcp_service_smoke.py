@@ -101,6 +101,76 @@ def test_get_effective_config_can_filter_sources(tmp_path: Path) -> None:
     assert result["config"]["sources"]["rss"]
 
 
+def test_replay_item_creates_fresh_single_item_raw_run(tmp_path: Path) -> None:
+    service = HorizonPipelineService(runs_root=tmp_path / "mcp-runs")
+    source_run_id = service.run_store.create_run("run-source")
+    source_items = [
+        {
+            "id": "item-1",
+            "source_type": "rss",
+            "title": "First item",
+            "url": "https://example.com/first",
+            "content": "first content",
+        },
+        {
+            "id": "item-2",
+            "source_type": "rss",
+            "title": "Selected item",
+            "url": "https://example.com/selected",
+            "content": "selected content",
+            "metadata": {"mechanism_research": {"status": "stale"}},
+            "processing": {"analysis": {"score": 10}},
+        },
+    ]
+    service.run_store.save_items(source_run_id, "raw", source_items)
+    service.run_store.update_meta(
+        source_run_id,
+        {
+            "content_topic_mode": True,
+            "topic_cadence": "daily",
+            "hours": 24,
+            "scored_count": 2,
+        },
+    )
+
+    replay = service.replay_item(
+        source_run_id=source_run_id,
+        item_url="https://example.com/selected",
+    )
+
+    assert replay["run_id"] != source_run_id
+    assert replay["item"]["id"] == "item-2"
+    replayed_item = service.run_store.load_items(replay["run_id"], "raw")[0]
+    assert replayed_item["id"] == "item-2"
+    assert "processing" not in replayed_item
+    assert "mechanism_research" not in replayed_item["metadata"]
+    meta = service.run_store.load_meta(replay["run_id"])
+    assert meta["raw_count"] == 1
+    assert meta["fetch_status"] == "replayed-existing-source"
+    assert meta["source_selection"] == {
+        "mode": "replayed-existing-source",
+        "source_run": source_run_id,
+        "source_url": "https://example.com/selected",
+    }
+    assert "scored_count" not in meta
+
+
+def test_replay_item_rejects_unknown_url(tmp_path: Path) -> None:
+    service = HorizonPipelineService(runs_root=tmp_path / "mcp-runs")
+    source_run_id = service.run_store.create_run("run-source")
+    service.run_store.save_items(
+        source_run_id,
+        "raw",
+        [{"id": "item-1", "url": "https://example.com/known"}],
+    )
+
+    with pytest.raises(Exception, match="No raw item matches"):
+        service.replay_item(
+            source_run_id=source_run_id,
+            item_url="https://example.com/missing",
+        )
+
+
 def test_get_effective_config_redacts_expanded_query_and_header_secrets(
     tmp_path: Path, monkeypatch
 ) -> None:

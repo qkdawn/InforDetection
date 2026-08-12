@@ -89,6 +89,31 @@ Inspect the current dynamic topic list:
 GET http://localhost:8090/topics?cadence=daily
 ```
 
+## Replay One Previously Fetched Link
+
+Import `n8n/workflows/horizon-single-link-replay.json` when an AI agent needs to
+verify the production chain without fetching all sources again. The workflow
+creates a fresh one-item run from an existing raw-stage URL, then executes:
+
+```text
+/replay -> /score -> /filter -> /research -> /enrich -> /report
+```
+
+It never copies the source run's score, research, enrichment, or images. The
+last node returns an `ai_context` object containing the source item, stage trace,
+research evidence, Chinese editorial artifact, report paths, and image-provider
+success or failure details.
+
+Manual execution uses the saved Marshall Islands example. AI agents can call the
+inactive workflow through its webhook after activation:
+
+```json
+{
+  "source_run_id": "run-20260809T030054Z-caefd0d7",
+  "item_url": "https://x.com/archaeologymag/status/2086172238332809661"
+}
+```
+
 ## Generate A Single-Topic Psychology Brief
 
 The `屏幕里的我们` pipeline accepts one digital-life topic, generates six competing

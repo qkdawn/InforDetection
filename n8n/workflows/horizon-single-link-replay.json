@@ -1,0 +1,182 @@
+{
+  "id": "HorizonSingleLinkReplay20260813A",
+  "name": "Horizon 单链接回放测试（跳过抓取）",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "8be7b99e-9726-4f40-b850-c7f319345096",
+      "name": "手动测试",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1240, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { source_run_id: 'run-20260809T030054Z-caefd0d7', item_url: 'https://x.com/archaeologymag/status/2086172238332809661' } }];"
+      },
+      "id": "ff9bef60-7eb0-4fac-926d-98bd81bb0c75",
+      "name": "设置已抓取链接",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1020, 80]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "horizon-single-link-replay",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "2f4ac629-f409-48d8-bdb7-5ee5d13bac95",
+      "name": "接收历史链接",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1240, 260],
+      "webhookId": "horizon-single-link-replay"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json; const sourceRunId = String(body.source_run_id ?? '').trim(); const itemUrl = String(body.item_url ?? '').trim(); if (!sourceRunId) throw new Error('source_run_id 不能为空'); if (!/^https?:\\/\\//i.test(itemUrl)) throw new Error('item_url 必须是 http(s) 链接'); return [{ json: { source_run_id: sourceRunId, item_url: itemUrl } }];"
+      },
+      "id": "b775c5e1-583d-4534-8dc9-ef7089959adb",
+      "name": "校验回放输入",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1020, 260]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/replay",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ source_run_id: $json.source_run_id, item_url: $json.item_url }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "d3e7cf40-f6b8-4d79-b9df-4cc8a28c93d8",
+      "name": "复用历史原始材料",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-760, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/score",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "db873cba-f99a-4507-b0a7-80727815c894",
+      "name": "重新归类并评分",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/filter",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, topic_dedup: true }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "f4cb5d8b-b991-44de-9e95-23cc0474935c",
+      "name": "按生产规则筛选",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-240, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/research",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "ba02a597-7d6d-44fe-a2f5-25441540ffb2",
+      "name": "补查关键事实",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [20, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/enrich",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, max_items: 10 }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "122dafdd-c0a7-459c-87c0-f985c88fdd13",
+      "name": "生成编辑稿件",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 170]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/report",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "2a39762e-a6b6-46fa-a66a-54f7538b2271",
+      "name": "渲染真实报告",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 170]
+    },
+    {
+      "parameters": {
+        "jsCode": "const replay = $('复用历史原始材料').first().json; const score = $('重新归类并评分').first().json; const filter = $('按生产规则筛选').first().json; const research = $('补查关键事实').first().json; const enrich = $('生成编辑稿件').first().json; const report = $('渲染真实报告').first().json; const enrichedItems = Array.isArray(enrich.items) ? enrich.items : []; const first = enrichedItems[0] ?? null; const artifact = first?.processing?.artifacts?.zh ?? null; return [{ json: { ok: report.ok === true, run_id: report.run_id, stage: 'ai-context', ai_context: { workflow: 'historical-link-replay', purpose: '跳过抓取，用历史 raw item 重新验证评分、研究、富化、图片与报告链路', source: { source_run_id: replay.source_run_id, item: replay.item }, trace: [ { stage: replay.stage, ok: replay.ok, stats: replay.stats }, { stage: score.stage, ok: score.ok, skipped: score.skipped ?? false, stats: score.stats }, { stage: filter.stage, ok: filter.ok, skipped: filter.skipped ?? false, stats: filter.stats }, { stage: research.stage, ok: research.ok, skipped: research.skipped ?? false, stats: research.stats }, { stage: enrich.stage, ok: enrich.ok, skipped: enrich.skipped ?? false, stats: enrich.stats }, { stage: report.stage, ok: report.ok } ], score: score.stats?.score ?? null, filter: filter.stats?.filter ?? null, research: { stats: research.stats?.research ?? null, items: research.items ?? [] }, enrichment: { stats: enrich.stats?.enrich ?? null, items: enrichedItems, first_zh_artifact: artifact }, report: report.report, image_generation: { cover: report.report?.cover_image ?? null, concept: report.report?.concept_images ?? null, mechanism: report.report?.mechanism_images ?? null, composition: report.report?.composition_images ?? null } } } }];"
+      },
+      "id": "9acf7429-eef9-46ef-829a-c2c39ac1cc16",
+      "name": "整理后续 AI 上下文",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 170]
+    }
+  ],
+  "connections": {
+    "手动测试": {"main": [[{"node": "设置已抓取链接", "type": "main", "index": 0}]]},
+    "设置已抓取链接": {"main": [[{"node": "复用历史原始材料", "type": "main", "index": 0}]]},
+    "接收历史链接": {"main": [[{"node": "校验回放输入", "type": "main", "index": 0}]]},
+    "校验回放输入": {"main": [[{"node": "复用历史原始材料", "type": "main", "index": 0}]]},
+    "复用历史原始材料": {"main": [[{"node": "重新归类并评分", "type": "main", "index": 0}]]},
+    "重新归类并评分": {"main": [[{"node": "按生产规则筛选", "type": "main", "index": 0}]]},
+    "按生产规则筛选": {"main": [[{"node": "补查关键事实", "type": "main", "index": 0}]]},
+    "补查关键事实": {"main": [[{"node": "生成编辑稿件", "type": "main", "index": 0}]]},
+    "生成编辑稿件": {"main": [[{"node": "渲染真实报告", "type": "main", "index": 0}]]},
+    "渲染真实报告": {"main": [[{"node": "整理后续 AI 上下文", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "timezone": "Asia/Shanghai"},
+  "meta": {"templateCredsSetupCompleted": true},
+  "tags": []
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from copy import deepcopy
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -528,6 +529,102 @@ class HorizonPipelineService:
             response["fetch_status"] = fetch_report.get("status")
             response["fetch_report"] = fetch_report
         return response
+
+    def replay_item(
+        self,
+        source_run_id: str,
+        item_url: str,
+    ) -> dict[str, Any]:
+        """Create a new one-item run from a previously fetched raw item."""
+
+        source_run_id = source_run_id.strip()
+        item_url = item_url.strip()
+        if not source_run_id or not item_url:
+            raise HorizonMcpError(
+                code="HZ_INVALID_INPUT",
+                message="source_run_id and item_url must be non-empty strings.",
+            )
+
+        try:
+            source_items = self.run_store.load_items(source_run_id, "raw")
+            source_meta = self.run_store.load_meta(source_run_id)
+        except FileNotFoundError as exc:
+            raise HorizonMcpError(
+                code="HZ_RUN_NOT_FOUND",
+                message=f"source_run_id={source_run_id} is missing its raw stage.",
+                details={"source_run_id": source_run_id},
+            ) from exc
+
+        selected = next(
+            (
+                item
+                for item in source_items
+                if str(item.get("url") or "").strip() == item_url
+            ),
+            None,
+        )
+        if selected is None:
+            raise HorizonMcpError(
+                code="HZ_ITEM_NOT_FOUND",
+                message="No raw item matches item_url in the source run.",
+                details={"source_run_id": source_run_id, "item_url": item_url},
+            )
+
+        replayed_item = deepcopy(selected)
+        replayed_item.pop("processing", None)
+        metadata = replayed_item.get("metadata")
+        if isinstance(metadata, dict):
+            metadata.pop("mechanism_research", None)
+
+        run_id = self.run_store.create_run()
+        self.run_store.save_items(run_id, "raw", [replayed_item])
+        inherited_keys = (
+            "horizon_path",
+            "config_path",
+            "hours",
+            "retention_days",
+            "content_topic_mode",
+            "topic_cadence",
+            "content_topics",
+        )
+        meta_updates = {
+            key: source_meta[key]
+            for key in inherited_keys
+            if key in source_meta
+        }
+        meta_updates.update(
+            {
+                "source_pool": "replayed-single-source",
+                "pool_source_count": 1,
+                "raw_count_before_merge": 1,
+                "raw_count_after_merge": 1,
+                "raw_count": 1,
+                "cross_run_dedup_enabled": False,
+                "fetch_status": "replayed-existing-source",
+                "source_selection": {
+                    "mode": "replayed-existing-source",
+                    "source_run": source_run_id,
+                    "source_url": item_url,
+                },
+            }
+        )
+        meta = self.run_store.update_meta(run_id, meta_updates)
+        return {
+            "run_id": run_id,
+            "source_run_id": source_run_id,
+            "fetched": 1,
+            "item": {
+                "id": replayed_item.get("id"),
+                "title": replayed_item.get("title"),
+                "url": replayed_item.get("url"),
+                "source_type": replayed_item.get("source_type"),
+                "published_at": replayed_item.get("published_at"),
+            },
+            "artifact": str(
+                (self.run_store.run_dir(run_id) / "raw_items.json").resolve()
+            ),
+            "meta": meta,
+        }
 
     async def score_items(
         self,
