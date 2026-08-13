@@ -493,7 +493,7 @@ def _base_css(accent: str) -> str:
     .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
-    .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
+    .agent-body {{ margin: 0; color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; display: flex; align-items: center; overflow: hidden; }}
     .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 398px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
@@ -518,7 +518,7 @@ def _base_css(accent: str) -> str:
     .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px calc(16px * var(--copy-scale)); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
     .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 700 calc(22px * var(--copy-scale))/1.32 var(--font-body); }}
-    .panel-body {{ color: var(--muted); font: 700 calc(17px * var(--copy-scale))/1.62 var(--font-body); }}
+    .panel-body {{ color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.62 var(--font-body); }}
     .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 14px var(--font-mono); }}
     .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 65%, transparent), color-mix(in srgb, var(--ink) 24%, transparent)); }}
     .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px var(--font-mono); }}

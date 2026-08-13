@@ -260,6 +260,19 @@ def test_item_card_uses_a_warm_paper_background_palette():
     assert f'--ink: {REPORT_THEME["ink"]}' in card
     assert f'--muted: {REPORT_THEME["muted"]}' in card
     assert f'--line: {REPORT_THEME["line"]}' in card
+
+
+def test_item_card_uses_deep_ink_for_long_form_body_copy():
+    model = build_report_model(
+        run_id="run-readable-body-copy",
+        items=[_item("a", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert ".agent-body { margin: 0; color: var(--ink);" in card
+    assert ".panel-body { color: var(--ink);" in card
     assert ".item-page { background: var(--paper)" in card
     assert ".editorial-title" in card
     assert "color: var(--ink)" in card
