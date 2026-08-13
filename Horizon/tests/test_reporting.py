@@ -161,7 +161,7 @@ def test_card_deck_respects_limit_without_truncating_report_model():
     assert f".directory-row strong {{ color: {COVER_ACCENT};" in cards[1]["html"]
     assert PRODUCT_COLOR != COVER_ACCENT
     assert (
-        f".editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {PRODUCT_COLOR};"
+        f".editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {REPORT_THEME['moss']};"
         in cards[2]["html"]
     )
     assert all("1080px" in card["html"] and "1440px" in card["html"] for card in cards)
@@ -531,5 +531,39 @@ def test_content_topic_classification_overrides_account_category():
     assert model["items"][0]["category"] == "动物、生态与自然现象"
     assert model["items"][0]["section_id"] == "gameplay-mechanics"
     assert model["items"][0]["section"] == "玩法与机制"
+    assert model["items"][0]["color"] == REPORT_THEME["brand"]
     assert "## 玩法与机制" in build_markdown(model)
     assert "## 动物、生态与自然现象" not in build_markdown(model)
+
+
+def test_item_card_uses_topic_color_only_for_category_identity():
+    model = build_report_model(
+        run_id="run-topic-color",
+        items=[_item("world", 9, profile="world-level")],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert f"border: 1px solid {REPORT_THEME['map_blue']}" in card
+    assert f"background: {REPORT_THEME['map_blue']}; color: var(--ink)" in card
+    assert f"--accent: {REPORT_THEME['map_blue']}" in card
+    assert ".item-page .brand strong { color: var(--brand);" in card
+
+
+def test_item_card_structure_labels_use_fixed_semantic_colors():
+    model = build_report_model(
+        run_id="run-semantic-section-colors",
+        items=[_item("a", 9, profile="gameplay-mechanics")],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=3)[2]["html"]
+
+    assert f"--event-accent: {REPORT_THEME['terracotta']}" in card
+    assert f"--insight-accent: {REPORT_THEME['brass']}" in card
+    assert f"--question-accent: {REPORT_THEME['ink_purple']}" in card
+    assert ".event-index b { color: var(--event-accent);" in card
+    assert ".mechanism-board .section-index strong" in card
+    assert ".design-panel .section-index strong" in card
+    assert ".question-panel .section-index strong" in card
