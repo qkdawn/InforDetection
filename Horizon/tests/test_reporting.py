@@ -551,7 +551,7 @@ def test_item_card_uses_topic_color_only_for_category_identity():
     assert ".item-page .brand strong { color: var(--brand);" in card
 
 
-def test_item_card_structure_labels_use_fixed_semantic_colors():
+def test_item_card_structure_labels_follow_the_topic_color():
     model = build_report_model(
         run_id="run-semantic-section-colors",
         items=[_item("a", 9, profile="gameplay-mechanics")],
@@ -560,10 +560,9 @@ def test_item_card_structure_labels_use_fixed_semantic_colors():
 
     card = build_card_html(model, max_cards=3)[2]["html"]
 
-    assert f"--event-accent: {REPORT_THEME['terracotta']}" in card
-    assert f"--insight-accent: {REPORT_THEME['brass']}" in card
-    assert f"--question-accent: {REPORT_THEME['ink_purple']}" in card
-    assert ".event-index b { color: var(--event-accent);" in card
-    assert ".mechanism-board .section-index strong" in card
-    assert ".design-panel .section-index strong" in card
-    assert ".question-panel .section-index strong" in card
+    assert f".event-index b {{ color: {REPORT_THEME['brand']};" in card
+    assert f".section-index strong {{ color: {REPORT_THEME['brand']};" in card
+    assert f"background: {REPORT_THEME['brand']};" in card
+    assert "--event-accent:" not in card
+    assert "--insight-accent:" not in card
+    assert "--question-accent:" not in card

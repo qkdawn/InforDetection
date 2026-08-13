@@ -416,9 +416,6 @@ def _base_css(accent: str) -> str:
       --moss: {REPORT_THEME["moss"]};
       --ink-purple: {REPORT_THEME["ink_purple"]};
       --brass: {REPORT_THEME["brass"]};
-      --event-accent: {REPORT_THEME["terracotta"]};
-      --insight-accent: {REPORT_THEME["brass"]};
-      --question-accent: {REPORT_THEME["ink_purple"]};
       --font-display: "{TITLE_FONT_FAMILY}", "Microsoft YaHei UI", sans-serif;
       --font-body: "{BODY_FONT_FAMILY}", "Microsoft YaHei UI", "PingFang SC", sans-serif;
       --font-ui: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
@@ -499,7 +496,7 @@ def _base_css(accent: str) -> str:
     .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, var(--paper) 76%); }}
     .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
-    .event-index b {{ color: var(--event-accent); font-size: 17px; line-height: 1; }}
+    .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
     .agent-body {{ margin: 0; color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
@@ -507,15 +504,9 @@ def _base_css(accent: str) -> str:
     .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 398px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
-    .section-index strong {{ color: var(--ink); font: 800 48px/1 var(--font-mono); }}
-    .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: var(--ink); }}
-    .section-index b {{ margin-bottom: 10px; color: var(--ink); font-size: 14px; line-height: 1.25; white-space: nowrap; }}
-    .mechanism-board .section-index strong, .mechanism-board .section-index b {{ color: var(--event-accent); }}
-    .mechanism-board .section-index i {{ background: var(--event-accent); }}
-    .design-panel .section-index strong, .design-panel .section-index b {{ color: var(--insight-accent); }}
-    .design-panel .section-index i {{ background: var(--insight-accent); }}
-    .question-panel .section-index strong, .question-panel .section-index b {{ color: var(--question-accent); }}
-    .question-panel .section-index i {{ background: var(--question-accent); }}
+    .section-index strong {{ color: {accent}; font: 800 48px/1 var(--font-mono); }}
+    .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
+    .section-index b {{ margin-bottom: 10px; color: {accent}; font-size: 14px; line-height: 1.25; white-space: nowrap; }}
     .section-index span {{ color: var(--muted); font: 500 11px/1.55 var(--font-mono); text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
