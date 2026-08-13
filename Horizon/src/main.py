@@ -155,7 +155,7 @@ def print_config_template():
     "time_window_hours": 24
   },
   "digest": {
-    "max_items": null,
+    "max_items": 10,
     "category_groups": {},
     "default_group": "other",
     "default_group_limit": null
