@@ -495,7 +495,7 @@ def _base_css(accent: str) -> str:
     .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
     .agent-body {{ margin: 0; color: color-mix(in srgb, var(--ink) 78%, var(--muted)); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; display: flex; align-items: center; overflow: hidden; }}
-    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 300px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
+    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 398px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .section-index strong {{ color: {accent}; font: 800 48px/1 var(--font-mono); }}
@@ -505,17 +505,17 @@ def _base_css(accent: str) -> str:
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
     .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 4px; background: var(--paper-soft); }}
-    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 100%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
+    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: contain; object-position: 50% 50%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
     .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
     .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 700 25px/1.4 var(--font-body); text-align: center; }}
-    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 976px; height: 360px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
+    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 1074px; height: 262px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .design-panel, .question-panel {{ display: grid; grid-template-columns: 108px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }}
     .question-panel {{ border-left: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
-    .design-content, .question-content {{ min-width: 0; padding: 31px 24px 22px; }}
-    .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(20px * var(--copy-scale)); overflow: hidden; }}
+    .design-content, .question-content {{ min-width: 0; padding: 23px 24px 16px; }}
+    .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px calc(14px * var(--copy-scale)); overflow: hidden; }}
     .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(31px * var(--copy-scale)) 24px calc(22px * var(--copy-scale)); overflow: hidden; }}
+    .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px calc(16px * var(--copy-scale)); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
     .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 700 calc(22px * var(--copy-scale))/1.32 var(--font-body); }}
     .panel-body {{ color: var(--muted); font: 700 calc(17px * var(--copy-scale))/1.62 var(--font-body); }}

@@ -80,7 +80,7 @@ class ConceptImageConfig:
             model=os.getenv("HORIZON_IMAGE_MODEL", "gpt-image-2"),
             size=os.getenv("HORIZON_IMAGE_SIZE", "1536x1024"),
             cover_size=os.getenv("HORIZON_COVER_IMAGE_SIZE", "1024x1536"),
-            mechanism_size=os.getenv("HORIZON_MECHANISM_IMAGE_SIZE", "1536x512"),
+            mechanism_size=os.getenv("HORIZON_MECHANISM_IMAGE_SIZE", "1792x768"),
             composition_size=os.getenv("HORIZON_COMPOSITION_IMAGE_SIZE", "1024x1536"),
             quality=os.getenv("HORIZON_IMAGE_QUALITY", "low"),
             cover_quality=os.getenv("HORIZON_COVER_IMAGE_QUALITY", "medium"),
@@ -276,14 +276,13 @@ def build_mechanism_prompt(item: dict[str, Any]) -> str:
                 "that best reveal how it actually unfolded."
             ),
             (
-                "Composition: make the lower 50 percent of the returned canvas the primary "
-                "deliverable: one uninterrupted, very wide strip of five to seven equal vertical "
-                "panels separated by fine ink rules. Each panel shows one distinct action or state, "
-                "with a clear left-to-right rhythm like an illustrated field notebook. Keep all "
-                "essential figures and actions inside this lower strip because the report will crop "
-                "and display only that area. The upper canvas may extend the same environment but "
-                "must contain no essential step. Leave a continuous warm-paper safety margin of "
-                "about five percent at both the left and right edges. The first and final panel "
+                "Composition: native ultra-wide 21:9 canvas. Fill the entire canvas with one "
+                "uninterrupted horizontal strip of five to seven equal vertical panels separated "
+                "by fine ink rules. Each panel shows one distinct action or state, with a clear "
+                "left-to-right rhythm like an illustrated field notebook. Use the full canvas "
+                "height for the storyboard rather than placing it inside a smaller band or adding "
+                "a separate panoramic scene above it. Leave a continuous warm-paper safety margin "
+                "of about five percent at both the left and right edges. The first and final panel "
                 "borders, figures, and objects must sit fully inside those margins rather than "
                 "touching or continuing beyond the canvas edge."
             ),
@@ -300,8 +299,8 @@ def build_mechanism_prompt(item: dict[str, Any]) -> str:
                 "multiple rows."
             ),
             (
-                "Deliver a publication-ready image whose cropped lower storyboard ribbon remains "
-                "complete and understandable on its own."
+                "Deliver a publication-ready 21:9 storyboard that remains complete and "
+                "understandable when scaled down without cropping."
             ),
         ]
     )

@@ -50,7 +50,7 @@ def test_concept_prompt_uses_all_three_report_blocks() -> None:
     assert "watermarks" in prompt
 
 
-def test_mechanism_prompt_visualizes_the_event_as_a_bottom_storyboard_ribbon() -> None:
+def test_mechanism_prompt_visualizes_the_event_as_a_native_21_9_storyboard() -> None:
     prompt = build_mechanism_prompt(_item())
 
     assert "makes the source event's process visible" in prompt
@@ -60,8 +60,9 @@ def test_mechanism_prompt_visualizes_the_event_as_a_bottom_storyboard_ribbon() -
     assert "hand-painted gouache and watercolor" in prompt
     assert "tactile pigment" in prompt
     assert "five to seven equal vertical panels" in prompt
-    assert "lower 50 percent" in prompt
-    assert "report will crop" in prompt
+    assert "native ultra-wide 21:9 canvas" in prompt
+    assert "Use the full canvas height" in prompt
+    assert "without cropping" in prompt
     assert "five percent at both the left and right edges" in prompt
     assert "must sit fully inside those margins" in prompt
     assert "Do not render titles, captions" in prompt
@@ -186,7 +187,7 @@ def test_mechanism_generation_no_longer_requires_text_steps(
     assert item["mechanism_image_url"].startswith("data:image/png;base64,")
     request = client.post.await_args
     assert request.args[0].endswith("/images/generations")
-    assert request.kwargs["json"]["size"] == "1536x512"
+    assert request.kwargs["json"]["size"] == "1792x768"
     assert Path(item["mechanism_image_path"]).read_bytes() == image_bytes
 
 
@@ -218,7 +219,7 @@ def test_mechanism_generation_is_independent_from_the_hero_image(
     assert result["generated"] == 1
     request = client.post.await_args
     assert request.args[0].endswith("/images/generations")
-    assert request.kwargs["json"]["size"] == "1536x512"
+    assert request.kwargs["json"]["size"] == "1792x768"
     assert "files" not in request.kwargs
 
 

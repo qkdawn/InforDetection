@@ -225,7 +225,7 @@ def test_empty_report_explains_that_all_candidates_were_rejected():
     assert "今天不硬凑" in cards[0]["html"]
 
 
-def test_card_crops_the_generated_mechanism_visual_to_its_bottom_storyboard_strip():
+def test_card_displays_the_native_21_9_mechanism_visual_without_cropping():
     model = build_report_model(
         run_id="run-mechanism-art",
         items=[_item("a", 9)],
@@ -237,8 +237,9 @@ def test_card_crops_the_generated_mechanism_visual_to_its_bottom_storyboard_stri
 
     assert card.count('class="mechanism-strip"') == 1
     assert card.count("data:image/png;base64,MECHANISM-ART") == 1
-    assert "object-fit: cover" in card
-    assert "object-position: 50% 100%" in card
+    assert "object-fit: contain" in card
+    assert "object-position: 50% 50%" in card
+    assert ".mechanism-board { position: absolute; left: 36px; right: 36px; top: 662px; height: 398px" in card
     assert ".mechanism-strip { position: absolute; inset: 12px 14px" in card
     assert "border-radius: 4px" in card
     assert 'class="media-fit"' in card
