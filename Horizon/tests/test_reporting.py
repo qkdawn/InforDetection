@@ -298,6 +298,7 @@ def test_report_hides_internal_research_citation_ids_from_reader_copy():
     blocks[2]["content"] = (
         "设计关系。[research-fresh_relationship-1-1]"
         "[research-fresh_relationship-2-3]"
+        "中文括号【research-fresh_relationship-2-2】"
     )
     model = build_report_model(
         run_id="run-hidden-citations",
@@ -309,11 +310,13 @@ def test_report_hides_internal_research_citation_ids_from_reader_copy():
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
     assert "正文事实。 下一句。" in markdown
-    assert "设计关系。" in card
+    assert "设计关系。中文括号" in card
     assert "[research-" not in markdown
     assert "[research-" not in card
     assert "[tool-" not in markdown
     assert "[tool-" not in card
+    assert "【research-" not in markdown
+    assert "【research-" not in card
 
 
 def test_item_card_body_type_is_readable_at_thumbnail_size():

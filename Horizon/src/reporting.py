@@ -81,7 +81,11 @@ def _plain_text(value: Any) -> str:
     if not value:
         return ""
     text = BeautifulSoup(str(value), "html.parser").get_text(" ", strip=True)
-    text = re.sub(r"\[(?:tool|research)-[^\]\s]+\]", "", text)
+    text = re.sub(
+        r"(?:\[(?:tool|research)-[^\]\s]+\]|【(?:tool|research)-[^】\s]+】)",
+        "",
+        text,
+    )
     return re.sub(r"\s+", " ", text).replace("`", "").strip()
 
 
