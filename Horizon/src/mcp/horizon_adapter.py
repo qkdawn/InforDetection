@@ -33,6 +33,7 @@ class HorizonRuntime:
     create_ai_client: Any
     ContentAnalyzer: Any
     ContentEnricher: Any
+    EditorialSelector: Any
     DailySummarizer: Any
     expand_env_vars: Any
 
@@ -123,6 +124,7 @@ def load_runtime(horizon_path: Path) -> HorizonRuntime:
         ai_client = importlib.import_module("src.ai.client")
         analyzer = importlib.import_module("src.ai.analyzer")
         enricher = importlib.import_module("src.ai.enricher")
+        selector = importlib.import_module("src.ai.selector")
         summarizer = importlib.import_module("src.ai.summarizer")
     except Exception as exc:  # pragma: no cover - import failure edge case
         raise HorizonMcpError(
@@ -140,6 +142,7 @@ def load_runtime(horizon_path: Path) -> HorizonRuntime:
         create_ai_client=ai_client.create_ai_client,
         ContentAnalyzer=analyzer.ContentAnalyzer,
         ContentEnricher=enricher.ContentEnricher,
+        EditorialSelector=selector.EditorialSelector,
         DailySummarizer=summarizer.DailySummarizer,
         expand_env_vars=storage._expand_env_vars,
     )

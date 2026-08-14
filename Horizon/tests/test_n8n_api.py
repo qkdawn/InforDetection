@@ -53,6 +53,14 @@ class FakeService:
         self.calls.append(("enrich", kwargs))
         return {"run_id": kwargs["run_id"], "status": "success", "enriched": 1}
 
+    async def evaluate_items(self, **kwargs):
+        self.calls.append(("evaluate", kwargs))
+        return {"run_id": kwargs["run_id"], "status": "success", "evaluated": 1}
+
+    async def select_items(self, **kwargs):
+        self.calls.append(("select", kwargs))
+        return {"run_id": kwargs["run_id"], "selected": 1}
+
     def get_run_stage(self, *, run_id: str, stage: str, max_items: int):
         count = self.raw_count if stage == "raw" else self.filtered_count
         items = [{"id": f"item-{index + 1}"} for index in range(count)]
@@ -220,7 +228,12 @@ def test_filter_and_enrich_return_stage_results(monkeypatch):
     assert enriched["stats"]["filter"]["kept"] == 1
     assert (
         "filter",
-        {"run_id": "run-1", "threshold": 7.0, "topic_dedup": False},
+        {
+            "run_id": "run-1",
+            "threshold": 7.0,
+            "topic_dedup": False,
+            "apply_balance": False,
+        },
     ) in service.calls
     assert ("enrich", {"run_id": "run-1"}) in service.calls
 
@@ -232,6 +245,8 @@ def test_stage_routes_and_validation():
         "/score",
         "/filter",
         "/research",
+        "/evaluate",
+        "/select",
         "/enrich",
         "/report",
         "/feishu",
@@ -249,6 +264,26 @@ def test_stage_routes_and_validation():
         n8n_api._parse_threshold({"threshold": 11})
     with pytest.raises(ValueError, match="cadence"):
         n8n_api._parse_cadence({"cadence": "everything"})
+
+
+def test_evaluate_and_select_preserve_empty_pipeline(monkeypatch):
+    service = FakeService(raw_count=1, filtered_count=0)
+    service.run_store.stages = {"raw", "scored", "filtered", "researched"}
+    saved: dict[str, list] = {}
+    metadata: dict[str, object] = {}
+    service.run_store.save_items = lambda run_id, stage, items: saved.setdefault(stage, items)  # type: ignore[attr-defined]
+    service.run_store.update_meta = lambda run_id, updates: metadata.update(updates) or metadata  # type: ignore[attr-defined]
+    service.run_store.write_json = lambda run_id, name, payload: payload  # type: ignore[attr-defined]
+    monkeypatch.setattr(n8n_api, "HorizonPipelineService", lambda: service)
+
+    evaluated = asyncio.run(n8n_api._evaluate_stage({"run_id": "run-1"}))
+    service.run_store.stages.add("evaluated")
+    selected = asyncio.run(n8n_api._select_stage({"run_id": "run-1", "limit": 10}))
+
+    assert evaluated["skipped"] is True
+    assert selected["skipped"] is True
+    assert saved == {"evaluated": [], "selected": []}
+    assert metadata["selection_method"] == "empty"
 
 
 def test_report_stage_uses_enriched_items(monkeypatch):

@@ -175,6 +175,7 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
     item = make_item()
     item.profile = "game-tech-daily"
     item.processing.classification.profile = "game-tech-daily"
+    item.content += "\n\n--- Top Comments ---\n\nReader speculation"
     responses = iter(
         [
             json.dumps(
@@ -186,6 +187,17 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
                         "content": "打出的牌会留在桌面并改变下一次出牌。",
                         "source_refs": ["fact-1-1"],
                     },
+                }
+            ),
+            json.dumps(
+                {
+                    "tool_requests": [
+                        {
+                            "tool": "read_source",
+                            "arguments": {"mode": "sample", "terms": []},
+                            "purpose": "Check the event account against the source",
+                        }
+                    ]
                 }
             ),
             json.dumps(
@@ -257,21 +269,28 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
         )
     )
 
-    assert len(requests) == 3
+    assert len(requests) == 4
     assert "以体验为中心的游戏设计编辑" in requests[0]["system"]
     assert "what_happened" in requests[0]["system"]
     assert "事件叙述" in requests[0]["system"]
-    assert "你是第二位编辑" in requests[1]["system"]
-    assert "选择、代价、限制、反馈和不确定性" in requests[1]["system"]
-    assert "系统追问者" in requests[2]["system"]
-    assert "开放复杂巨系统" in requests[2]["system"]
+    assert "`read_source` tool" in requests[1]["system"]
+    assert "资深游戏设计师和游戏体验研究者" in requests[2]["system"]
+    assert "隐藏的“玩家体验结构”" in requests[2]["system"]
+    assert "系统追问者" in requests[3]["system"]
+    assert "开放复杂巨系统" in requests[3]["system"]
     assert "# Event narration from the first editor" in requests[1]["user"]
     assert "# Event narration from the first editor" in requests[2]["user"]
-    assert "# Core discovery from the second editor" in requests[2]["user"]
+    assert "# Event narration from the first editor" in requests[3]["user"]
+    assert "# Core discovery from the second editor" in requests[3]["user"]
     assert "https://example.com/rules" in requests[0]["user"]
     assert "https://example.com/notes" in requests[0]["user"]
-    assert "https://example.com/notes" in requests[1]["user"]
-    assert "https://example.com/rules" in requests[2]["user"]
+    assert "A project released a new architecture." not in requests[1]["user"]
+    assert "# Source content" not in requests[2]["user"]
+    assert "<read_source_result" in requests[2]["user"]
+    assert "A project released a new architecture." in requests[2]["user"]
+    assert "Reader speculation" not in requests[2]["user"]
+    assert "https://example.com/notes" in requests[2]["user"]
+    assert "https://example.com/rules" in requests[3]["user"]
     assert [block.id for block in generated.blocks] == [
         "what_happened",
         "fresh_relationship",
@@ -303,6 +322,17 @@ def test_game_profile_can_reject_when_no_core_discovery_is_defensible():
                         "content": "项目发布了一个常规版本。",
                         "source_refs": [],
                     },
+                }
+            ),
+            json.dumps(
+                {
+                    "tool_requests": [
+                        {
+                            "tool": "read_source",
+                            "arguments": {"mode": "sample", "terms": []},
+                            "purpose": "Verify whether the release has design value",
+                        }
+                    ]
                 }
             ),
             json.dumps(

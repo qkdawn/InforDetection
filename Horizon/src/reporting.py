@@ -81,7 +81,7 @@ def _plain_text(value: Any) -> str:
     if not value:
         return ""
     text = BeautifulSoup(str(value), "html.parser").get_text(" ", strip=True)
-    text = re.sub(r"\[tool-[^\]]+\]", "", text)
+    text = re.sub(r"\[(?:tool|research)-[^\]\s]+\]", "", text)
     return re.sub(r"\s+", " ", text).replace("`", "").strip()
 
 
@@ -483,26 +483,26 @@ def _base_css(accent: str) -> str:
     .item-page .brand span {{ color: var(--muted); font-size: 17px; }}
     .item-page .meta {{ gap: 16px; color: var(--muted); }}
     .item-page .score {{ padding: 8px 12px; font-size: 17px; }}
-    .editorial-hero {{ position: absolute; left: 36px; right: 36px; top: 88px; height: 350px; overflow: hidden; background: #e5dcc8; border: 1px solid rgba(74, 65, 53, .22); }}
-    .editorial-hero-copy {{ position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 55%; min-width: 0; padding: 46px 34px 28px 8px; }}
+    .editorial-hero {{ position: absolute; left: 0; right: 0; top: 72px; height: 380px; overflow: hidden; background: transparent; }}
+    .editorial-hero-copy {{ position: absolute; z-index: 3; left: 0; top: 0; bottom: 0; width: 52%; min-width: 0; padding: 46px 32px 28px 8px; }}
     .editorial-tags {{ display: flex; gap: 14px; align-items: center; min-height: 36px; overflow: hidden; }}
     .editorial-tag {{ display: inline-flex; max-width: 240px; padding: 8px 12px; border: 1px solid {accent}; border-radius: 3px; color: {accent}; font-size: 16px; font-weight: 800; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
     .editorial-title {{ margin-top: 22px; width: 540px; max-width: 100%; height: 178px; overflow: hidden; color: var(--ink); font: 400 60px/1.12 var(--font-display); text-wrap: balance; text-shadow: none; }}
     .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid color-mix(in srgb, var(--brand) 62%, transparent); color: var(--muted); font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
     .editorial-deck::before {{ content: ""; position: absolute; left: 0; top: -2px; width: 42px; height: 3px; background: {accent}; }}
-    .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: #ddd3bc; }}
-    .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; right: 0; top: 0; width: 64%; height: 100%; display: block; object-fit: contain; object-position: right center; filter: saturate(.84) contrast(1.06) brightness(.82); }}
-    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 40%, color-mix(in srgb, var(--paper) 97%, transparent) 47%, color-mix(in srgb, var(--paper) 75%, transparent) 56%, color-mix(in srgb, var(--paper) 30%, transparent) 67%, transparent 80%); }}
+    .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: var(--paper); }}
+    .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; right: 0; top: 0; width: 70%; height: 100%; display: block; object-fit: cover; object-position: 58% center; filter: saturate(.88) contrast(1.04) brightness(.9); }}
+    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 36%, color-mix(in srgb, var(--paper) 98%, transparent) 43%, color-mix(in srgb, var(--paper) 72%, transparent) 50%, color-mix(in srgb, var(--paper) 24%, transparent) 57%, transparent 64%); }}
     .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, var(--paper) 76%); }}
-    .event-strip {{ --copy-scale: 1; position: absolute; left: 36px; right: 36px; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
+    .event-strip {{ --copy-scale: 1; position: absolute; left: 0; right: 0; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
     .agent-body {{ margin: 0; color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; display: flex; align-items: center; overflow: hidden; }}
-    .mechanism-board {{ position: absolute; left: 36px; right: 36px; top: 662px; height: 398px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
-    .mechanism-board:has(.mechanism-strip) {{ background: #ddd3bd; }}
+    .mechanism-board {{ position: absolute; left: 0; right: 0; top: 662px; height: 352px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
+    .mechanism-board:has(.mechanism-strip) {{ background: var(--paper-soft); }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .section-index strong {{ color: {accent}; font: 800 48px/1 var(--font-mono); }}
     .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
@@ -510,25 +510,41 @@ def _base_css(accent: str) -> str:
     .section-index span {{ color: var(--muted); font: 500 11px/1.55 var(--font-mono); text-transform: uppercase; }}
     .mechanism-main {{ position: relative; min-width: 0; padding: 0; overflow: hidden; }}
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
-    .mechanism-strip {{ position: absolute; inset: 12px 14px; margin: 0; overflow: hidden; border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); border-radius: 4px; background: var(--paper-soft); }}
-    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: contain; object-position: 50% 50%; filter: saturate(.92) contrast(1.06) brightness(.92); }}
+    .mechanism-strip {{ position: absolute; inset: 2px 0; margin: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--paper-soft); }}
+    .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; transform: scale(1.045); filter: saturate(.92) contrast(1.06) brightness(.92); }}
     .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
     .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 700 25px/1.4 var(--font-body); text-align: center; }}
-    .bottom-board {{ position: absolute; left: 36px; right: 36px; top: 1074px; height: 262px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
+    .bottom-board {{ position: absolute; left: 0; right: 0; top: 1014px; bottom: 24px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .design-panel, .question-panel {{ display: grid; grid-template-columns: 108px minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }}
     .question-panel {{ border-left: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
     .design-content, .question-content {{ min-width: 0; padding: 23px 24px 16px; }}
-    .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px calc(14px * var(--copy-scale)); overflow: hidden; }}
+    .design-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px max(28px, calc(14px * var(--copy-scale))); overflow: hidden; }}
     .design-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px calc(16px * var(--copy-scale)); overflow: hidden; }}
+    .question-content {{ --copy-scale: 1; height: 100%; min-height: 0; padding: calc(23px * var(--copy-scale)) 24px max(28px, calc(16px * var(--copy-scale))); overflow: hidden; }}
     .question-content .board-title {{ font-size: calc(21px * var(--copy-scale)); }}
-    .panel-heading {{ margin-bottom: calc(14px * var(--copy-scale)); color: var(--ink); font: 700 calc(22px * var(--copy-scale))/1.32 var(--font-body); }}
-    .panel-body {{ color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.62 var(--font-body); }}
-    .editorial-footer {{ position: absolute; left: 40px; right: 40px; bottom: 22px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 14px var(--font-mono); }}
+    .panel-heading {{ margin-bottom: calc(12px * var(--copy-scale)); color: var(--ink); font: 700 calc(20px * var(--copy-scale))/1.32 var(--font-body); }}
+    .panel-body {{ color: var(--ink); font: 700 calc(15px * var(--copy-scale))/1.58 var(--font-body); }}
+    .editorial-footer {{ position: absolute; z-index: 10; left: 40px; right: 40px; bottom: 3px; height: 18px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; color: var(--muted); font: 500 12px var(--font-mono); }}
     .editorial-footer-line {{ height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 65%, transparent), color-mix(in srgb, var(--ink) 24%, transparent)); }}
     .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px var(--font-mono); }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
+    .event-card-layout .editorial-hero {{ height: 390px; }}
+    .event-card-layout .event-strip {{ top: 452px; height: 390px; align-items: stretch; }}
+    .event-card-layout .event-body {{ height: 100%; padding: 34px 42px; align-items: flex-start; font-size: calc(25px * var(--copy-scale)); line-height: 1.55; }}
+    .event-card-layout .agent-lead {{ padding: 40px 34px; }}
+    .event-card-layout .agent-lead h2 {{ font-size: calc(32px * var(--copy-scale)); line-height: 1.35; }}
+    .event-card-layout .mechanism-board {{ top: 842px; bottom: 24px; height: auto; }}
+    .event-card-layout .mechanism-strip {{ inset: 2px 0; }}
+    .insight-card-layout .editorial-hero {{ height: 250px; }}
+    .insight-card-layout .editorial-hero-media {{ display: none; }}
+    .insight-card-layout .editorial-hero-copy {{ width: 100%; padding: 42px 48px 24px; }}
+    .insight-card-layout .editorial-title {{ height: 130px; width: 900px; font-size: 52px; }}
+    .insight-card-layout .bottom-board {{ top: 250px; bottom: 24px; grid-template-columns: 1fr; grid-template-rows: 43% 57%; }}
+    .insight-card-layout .question-panel {{ border-left: 0; border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
+    .insight-card-layout .panel-heading {{ font-size: 32px; line-height: 1.3; }}
+    .insight-card-layout .panel-body {{ font-size: 28px; line-height: 1.52; }}
+    .insight-card-layout .question-content .systems-question p {{ font-size: 28px; line-height: 1.52; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
     .cover-page {{ background: var(--paper); color: var(--ink); }}
     .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: var(--ink); }}
@@ -617,7 +633,7 @@ def _fit_script() -> str:
       const fitCopy = () => {
         document.querySelectorAll('[data-fit-copy]').forEach((copy) => {
           let scale = 1;
-          while (copy.scrollHeight > copy.clientHeight && scale > 0.68) {
+          while (copy.scrollHeight > copy.clientHeight && scale > 0.52) {
             scale -= 0.02;
             copy.style.setProperty('--copy-scale', scale.toFixed(2));
           }
@@ -655,11 +671,12 @@ def _shell(
     score_html = (
         f'<strong class="score">{score:.1f} 分</strong>' if score is not None else ""
     )
-    page_class = (
-        f"{page_kind}-page"
-        if page_kind
-        else ("item-page" if score is not None else "cover-page")
-    )
+    if page_kind in {"cover", "directory"}:
+        page_class = f"{page_kind}-page"
+    elif page_kind:
+        page_class = f"item-page {page_kind}"
+    else:
+        page_class = "item-page" if score is not None else "cover-page"
     return f"""
     <main class="page {page_class}" style="--accent: {accent}"><div class="content">
       <div class="top"><div class="brand"><strong>HORIZON</strong><b>/</b><span>游戏创意雷达</span></div><div class="meta"><span>{index:02d} / {total:02d}</span>{score_html}</div></div>
@@ -794,9 +811,11 @@ def _legacy_build_card_html(
 
 def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str, str]]:
     """Build the unified cinematic report deck used by the daily output."""
+    # max_cards keeps its existing meaning as the deck budget: after cover and
+    # directory, each selected item now consumes two readable cards.
     available_item_pages = max(0, max_cards - 2)
     featured = model["items"][:available_item_pages]
-    total = 2 + len(featured)
+    total = 2 + len(featured) * 2
     date_label = model["date"].replace("-", ".")
     cards: list[dict[str, str]] = []
 
@@ -893,7 +912,8 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
     )
 
     for item_index, item in enumerate(featured, start=1):
-        card_index = 2 + item_index
+        event_card_index = 2 + (item_index - 1) * 2 + 1
+        insight_card_index = event_card_index + 1
         title = html.escape(item["title"])
         event_heading_text = item.get("event_heading") or _truncate(
             item["what_happened"], 28
@@ -933,7 +953,7 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
             if systems_question_copy
             else ""
         )
-        item_content = f"""
+        event_content = f"""
           <section class="editorial-hero">
             <div class="editorial-hero-copy">
               <div class="editorial-tags">
@@ -954,9 +974,23 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
           </section>
           <section class="mechanism-board">
             <div class="section-index"><strong>01</strong><i></i><b>事件过程</b></div>
-            <div class="mechanism-main">
-              {mechanism_visual}
+            <div class="mechanism-main">{mechanism_visual}</div>
+          </section>
+          <div class="editorial-footer">
+            <span>{html.escape(item["source"])} · {item["score"]:.1f} 分</span>
+            <i class="editorial-footer-line"></i>
+            <span>{html.escape(item["published_at"][:10])}</span>
+          </div>
+        """
+        insight_content = f"""
+          <section class="editorial-hero">
+            <div class="editorial-hero-copy">
+              <div class="editorial-tags">
+                <span class="editorial-tag">{html.escape(item["section"])}</span>
+              </div>
+              <h1 class="editorial-title" data-fit-title>{title}</h1>
             </div>
+            {hero_media}
           </section>
           <section class="bottom-board">
             <div class="design-panel" data-field-label="设计启示">
@@ -979,21 +1013,39 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
             <span>{html.escape(item["published_at"][:10])}</span>
           </div>
         """
-        cards.append(
-            {
-                "slug": f"item-{item_index:02d}",
-                "html": _html_page(
-                    _shell(
-                        item_content,
+        cards.extend(
+            [
+                {
+                    "slug": f"item-{item_index:02d}",
+                    "html": _html_page(
+                        _shell(
+                            event_content,
+                            accent=item["color"],
+                            index=event_card_index,
+                            total=total,
+                            score=item["score"],
+                            page_kind="event-card-layout",
+                        ),
                         accent=item["color"],
-                        index=card_index,
-                        total=total,
-                        score=item["score"],
+                        title=item["title"],
                     ),
-                    accent=item["color"],
-                    title=item["title"],
-                ),
-            }
+                },
+                {
+                    "slug": f"item-{item_index:02d}-detail",
+                    "html": _html_page(
+                        _shell(
+                            insight_content,
+                            accent=item["color"],
+                            index=insight_card_index,
+                            total=total,
+                            score=item["score"],
+                            page_kind="insight-card-layout",
+                        ),
+                        accent=item["color"],
+                        title=item["title"],
+                    ),
+                },
+            ]
         )
 
     return cards

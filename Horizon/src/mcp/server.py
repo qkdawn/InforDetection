@@ -202,6 +202,7 @@ async def hz_filter_items(
     threshold: float | None = None,
     source_stage: str = "scored",
     topic_dedup: bool = True,
+    apply_balance: bool = True,
     horizon_path: str | None = None,
     config_path: str | None = None,
 ) -> dict[str, Any]:
@@ -214,6 +215,7 @@ async def hz_filter_items(
             threshold=threshold,
             source_stage=source_stage,
             topic_dedup=topic_dedup,
+            apply_balance=apply_balance,
             horizon_path=horizon_path,
             config_path=config_path,
         ),
@@ -261,6 +263,50 @@ async def hz_enrich_items(
 
 
 @mcp.tool()
+async def hz_evaluate_items(
+    run_id: str,
+    source_stage: str = "researched",
+    horizon_path: str | None = None,
+    config_path: str | None = None,
+) -> dict[str, Any]:
+    """Lightly evaluate researched candidates into the evaluated stage."""
+    return await _run_tool(
+        "hz_evaluate_items",
+        lambda: service.evaluate_items(
+            run_id=run_id,
+            source_stage=source_stage,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        ),
+    )
+
+
+@mcp.tool()
+async def hz_select_items(
+    run_id: str,
+    source_stage: str = "evaluated",
+    limit: int = 10,
+    min_topics: int = 4,
+    max_per_source: int = 2,
+    horizon_path: str | None = None,
+    config_path: str | None = None,
+) -> dict[str, Any]:
+    """Select the final editorial set from evaluated candidates."""
+    return await _run_tool(
+        "hz_select_items",
+        lambda: service.select_items(
+            run_id=run_id,
+            source_stage=source_stage,
+            limit=limit,
+            min_topics=min_topics,
+            max_per_source=max_per_source,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        ),
+    )
+
+
+@mcp.tool()
 async def hz_generate_summary(
     run_id: str,
     language: str = "zh",
@@ -296,7 +342,7 @@ async def hz_run_pipeline(
     topic_dedup: bool = True,
     save_to_horizon_data: bool = False,
 ) -> dict[str, Any]:
-    """Run fetch -> score -> filter -> research -> enrich -> summarize in one call."""
+    """Run fetch -> score -> filter -> research -> evaluate -> select -> enrich."""
 
     return await _run_tool(
         "hz_run_pipeline",

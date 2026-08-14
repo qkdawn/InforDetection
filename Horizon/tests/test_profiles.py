@@ -44,7 +44,7 @@ def test_game_inspiration_profile_requires_playable_depth():
     assert "以体验为中心的游戏设计编辑" in profile.editorial_prompt
     assert "正在寻找新鲜经验和设计启发" in profile.editorial_prompt
     assert "不要展示分析过程" in profile.editorial_prompt
-    assert "选择、代价、限制、反馈和不确定性" in profile.insight_prompt
+    assert "隐藏的“玩家体验结构”" in profile.insight_prompt
     assert "《系统之美》" in profile.systems_prompt
     assert "开放复杂巨系统" in profile.systems_prompt
     assert "从一个角色、一个动作或一个局部机制" in profile.systems_prompt

@@ -46,7 +46,7 @@ The active n8n workflow is `游戏创意雷达（Horizon）`. It runs one shared
 pool for each cadence, then routes every fetched item by its own content:
 
 ```text
-/fetch -> /score -> /filter -> /enrich -> /report
+/fetch -> /score -> /filter (>7) -> /research -> /evaluate -> /select (10) -> /enrich -> /report
 ```
 
 The workflow has three cadences. Daily runs combine the RSS daily pool and all X

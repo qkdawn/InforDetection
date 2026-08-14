@@ -102,6 +102,21 @@ def _pipeline_stats(
             "failed": meta.get("research_failed_count", 0),
             "sources": meta.get("research_source_count", 0),
         }
+    evaluation = None
+    if "evaluation_status" in meta:
+        evaluation = {
+            "status": meta.get("evaluation_status"),
+            "evaluated": meta.get("evaluated_count", 0),
+            "failed": meta.get("evaluation_failed_count", 0),
+        }
+    selection = None
+    if "selection_status" in meta:
+        selection = {
+            "status": meta.get("selection_status"),
+            "selected": meta.get("selected_count", 0),
+            "limit": meta.get("selection_limit", 10),
+            "method": meta.get("selection_method"),
+        }
     enrichment = None
     if "enrichment_status" in meta:
         enrichment = {
@@ -121,6 +136,8 @@ def _pipeline_stats(
         "score": score,
         "filter": filtered,
         "research": research,
+        "evaluation": evaluation,
+        "selection": selection,
         "enrich": enrichment,
         "meta": meta,
     }
@@ -204,7 +221,10 @@ async def _score_stage(options: dict[str, Any]) -> dict[str, Any]:
 async def _filter_stage(options: dict[str, Any]) -> dict[str, Any]:
     run_id = _require_run_id(options)
     threshold = _parse_threshold(options)
+    if threshold is None:
+        threshold = 7.000001
     topic_dedup = bool(options.get("topic_dedup", True))
+    apply_balance = bool(options.get("apply_balance", False))
 
     service = HorizonPipelineService()
     if not service.run_store.has_stage(run_id, "scored"):
@@ -222,6 +242,7 @@ async def _filter_stage(options: dict[str, Any]) -> dict[str, Any]:
         run_id=run_id,
         threshold=threshold,
         topic_dedup=topic_dedup,
+        apply_balance=apply_balance,
     )
     return {
         "ok": True,
@@ -238,7 +259,7 @@ async def _enrich_stage(options: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("max_items must be between 1 and 2000")
 
     service = HorizonPipelineService()
-    if not service.run_store.has_stage(run_id, "filtered"):
+    if not service.run_store.has_stage(run_id, "filtered") and not service.run_store.has_stage(run_id, "selected"):
         raw = service.get_run_stage(run_id=run_id, stage="raw", max_items=1)
         if raw["count"] == 0:
             stats = _pipeline_stats(service, run_id)
@@ -252,14 +273,19 @@ async def _enrich_stage(options: dict[str, Any]) -> dict[str, Any]:
                 "stats": stats,
             }
 
-    filtered = service.get_run_stage(run_id=run_id, stage="filtered", max_items=1)
+    source_for_empty_check = "selected" if service.run_store.has_stage(run_id, "selected") else "filtered"
+    filtered = service.get_run_stage(
+        run_id=run_id,
+        stage=source_for_empty_check,
+        max_items=1,
+    )
     if filtered["count"] == 0:
         stats = _pipeline_stats(service, run_id)
         stats["enrich"] = None
         return {
             "ok": True,
             "run_id": run_id,
-            "stage": "filtered",
+            "stage": source_for_empty_check,
             "skipped": True,
             "items": [],
             "stats": stats,
@@ -267,7 +293,10 @@ async def _enrich_stage(options: dict[str, Any]) -> dict[str, Any]:
 
     enrich_options = {"run_id": run_id}
     source_stage = "filtered"
-    if service.run_store.has_stage(run_id, "researched"):
+    if service.run_store.has_stage(run_id, "selected"):
+        source_stage = "selected"
+        enrich_options["source_stage"] = source_stage
+    elif service.run_store.has_stage(run_id, "researched"):
         source_stage = "researched"
         enrich_options["source_stage"] = source_stage
     enrichment = await service.enrich_items(**enrich_options)
@@ -279,6 +308,93 @@ async def _enrich_stage(options: dict[str, Any]) -> dict[str, Any]:
         "run_id": run_id,
         "stage": stage,
         "items": _stage_items(service, run_id, stage, max_items=max_items),
+        "stats": stats,
+    }
+
+
+async def _evaluate_stage(options: dict[str, Any]) -> dict[str, Any]:
+    run_id = _require_run_id(options)
+    service = HorizonPipelineService()
+    source_stage = "researched" if service.run_store.has_stage(run_id, "researched") else "filtered"
+    if not service.run_store.has_stage(run_id, source_stage):
+        return {"ok": True, "run_id": run_id, "stage": source_stage, "skipped": True, "items": []}
+    candidates = service.get_run_stage(run_id=run_id, stage=source_stage, max_items=1)
+    if candidates["count"] == 0:
+        service.run_store.save_items(run_id, "evaluated", [])
+        service.run_store.update_meta(
+            run_id,
+            {
+                "evaluation_status": "success",
+                "evaluated_count": 0,
+                "evaluation_failed_count": 0,
+                "evaluation_failed_ids": [],
+            },
+        )
+        return {
+            "ok": True,
+            "run_id": run_id,
+            "stage": "evaluated",
+            "skipped": True,
+            "items": [],
+        }
+    evaluation = await service.evaluate_items(run_id=run_id, source_stage=source_stage)
+    stats = _pipeline_stats(service, run_id)
+    stats["evaluation"] = evaluation
+    return {
+        "ok": True,
+        "run_id": run_id,
+        "stage": "evaluated" if evaluation["status"] != "failure" else source_stage,
+        "items": _stage_items(service, run_id, "evaluated" if evaluation["status"] != "failure" else source_stage, max_items=2000),
+        "stats": stats,
+    }
+
+
+async def _select_stage(options: dict[str, Any]) -> dict[str, Any]:
+    run_id = _require_run_id(options)
+    limit = int(options.get("limit", 10))
+    min_topics = int(options.get("min_topics", 4))
+    max_per_source = int(options.get("max_per_source", 2))
+    service = HorizonPipelineService()
+    if not service.run_store.has_stage(run_id, "evaluated"):
+        raise ValueError("run_id must have a completed evaluated stage")
+    candidates = service.get_run_stage(run_id=run_id, stage="evaluated", max_items=1)
+    if candidates["count"] == 0:
+        service.run_store.save_items(run_id, "selected", [])
+        service.run_store.write_json(
+            run_id,
+            "final_selection.json",
+            {"selected": [], "summary": "No eligible candidates.", "method": "empty"},
+        )
+        service.run_store.update_meta(
+            run_id,
+            {
+                "selection_status": "success",
+                "selection_limit": limit,
+                "selected_count": 0,
+                "selection_method": "empty",
+            },
+        )
+        return {
+            "ok": True,
+            "run_id": run_id,
+            "stage": "selected",
+            "skipped": True,
+            "items": [],
+        }
+    selection = await service.select_items(
+        run_id=run_id,
+        source_stage="evaluated",
+        limit=limit,
+        min_topics=min_topics,
+        max_per_source=max_per_source,
+    )
+    stats = _pipeline_stats(service, run_id)
+    stats["selection"] = selection
+    return {
+        "ok": True,
+        "run_id": run_id,
+        "stage": "selected",
+        "items": _stage_items(service, run_id, "selected", max_items=limit),
         "stats": stats,
     }
 
@@ -337,10 +453,15 @@ async def _report_stage(options: dict[str, Any]) -> dict[str, Any]:
     service = HorizonPipelineService()
     if service.run_store.has_stage(run_id, "enriched"):
         stage = "enriched"
+    elif service.run_store.has_stage(run_id, "selected"):
+        selected = service.get_run_stage(run_id=run_id, stage="selected", max_items=1)
+        if selected["count"]:
+            raise ValueError("run_id has selected candidates but no completed enriched stage")
+        stage = "selected"
     else:
         available_stages = [
             candidate
-            for candidate in ("researched", "filtered", "raw")
+            for candidate in ("evaluated", "researched", "filtered", "raw")
             if service.run_store.has_stage(run_id, candidate)
         ]
         if not available_stages:
@@ -588,6 +709,8 @@ _POST_ROUTES = {
     "/filter": _filter_stage,
     "/research": _research_stage,
     "/enrich": _enrich_stage,
+    "/evaluate": _evaluate_stage,
+    "/select": _select_stage,
     "/report": _report_stage,
     "/feishu": _feishu_stage,
     "/psychology-brief": _psychology_brief_stage,

@@ -130,7 +130,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ run_id: $json.run_id, topic_dedup: true }) }}",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, threshold: 7.000001, topic_dedup: true, apply_balance: false }) }}",
         "options": {"timeout": 2147483647}
       },
       "id": "b1f029d8-fb1a-42cc-b457-b1d176525601",
@@ -157,7 +157,7 @@
       "name": "游戏设计编辑首次成稿",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 180]
+      "position": [1280, 180]
     },
     {
       "parameters": {
@@ -182,7 +182,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://horizon-api:8080/report",
+        "url": "http://horizon-api:8080/evaluate",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [{"name": "Content-Type", "value": "application/json"}]
@@ -193,11 +193,51 @@
         "body": "={{ JSON.stringify({ run_id: $json.run_id }) }}",
         "options": {"timeout": 2147483647}
       },
+      "id": "d1184ec7-8081-4d27-ae76-23a521bd30d0",
+      "name": "统一整理候选价值",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/select",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, limit: 10, min_topics: 4, max_per_source: 2 }) }}",
+        "options": {"timeout": 2147483647}
+      },
+      "id": "e2285fd8-9192-4e38-bf87-34b632ce41e1",
+      "name": "AI终审选择10条",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://horizon-api:8080/report",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Content-Type", "value": "application/json"}]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ run_id: $json.run_id, max_cards: 12 }) }}",
+        "options": {"timeout": 2147483647}
+      },
       "id": "14a2e85b-150e-4fd2-aad6-9b8f95ca8df3",
       "name": "生成创意雷达报告",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1000, 180]
+      "position": [1560, 180]
     },
     {
       "parameters": {
@@ -217,7 +257,7 @@
       "name": "推送报告到飞书",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1280, 180]
+      "position": [1840, 180]
     }
   ],
   "connections": {
@@ -230,7 +270,9 @@
     "抓取本周期全部来源": {"main": [[{"node": "按内容归类并评分", "type": "main", "index": 0}]]},
     "按内容归类并评分": {"main": [[{"node": "板块内筛选去重", "type": "main", "index": 0}]]},
     "板块内筛选去重": {"main": [[{"node": "补查会改变判断的事实", "type": "main", "index": 0}]]},
-    "补查会改变判断的事实": {"main": [[{"node": "游戏设计编辑首次成稿", "type": "main", "index": 0}]]},
+    "补查会改变判断的事实": {"main": [[{"node": "统一整理候选价值", "type": "main", "index": 0}]]},
+    "统一整理候选价值": {"main": [[{"node": "AI终审选择10条", "type": "main", "index": 0}]]},
+    "AI终审选择10条": {"main": [[{"node": "游戏设计编辑首次成稿", "type": "main", "index": 0}]]},
     "游戏设计编辑首次成稿": {"main": [[{"node": "生成创意雷达报告", "type": "main", "index": 0}]]},
     "生成创意雷达报告": {"main": [[{"node": "推送报告到飞书", "type": "main", "index": 0}]]}
   },

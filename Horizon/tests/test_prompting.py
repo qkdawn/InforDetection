@@ -8,6 +8,7 @@ from src.ai.prompting.enrichment import (
     event_narration_prompt,
     game_insight_prompt,
     item_context,
+    source_read_planning_prompt,
     systems_question_prompt,
     tool_planning_prompt,
 )
@@ -114,6 +115,7 @@ def test_editorial_generation_uses_separate_event_and_insight_prompts():
     insight = game_insight_prompt(
         profile, "zh", profile.definition.enrichment.blocks[1]
     )
+    source_read = source_read_planning_prompt(profile, "zh")
     systems = systems_question_prompt(
         profile, "zh", profile.definition.enrichment.blocks[2]
     )
@@ -122,8 +124,10 @@ def test_editorial_generation_uses_separate_event_and_insight_prompts():
     assert '"event_card"' not in event
     assert '"condition"' not in event
     assert "事件叙述" in event
-    assert "你是第二位编辑" in insight
-    assert "选择、代价、限制、反馈和不确定性" in insight
+    assert "资深游戏设计师和游戏体验研究者" in insight
+    assert "隐藏的“玩家体验结构”" in insight
+    assert "`read_source` tool" in source_read
+    assert '"mode": "sample" or "search"' in source_read
     assert '"decision": "publish" or "reject"' in insight
     assert '"rejection_reason"' in insight
     assert '"insight_card"' not in insight

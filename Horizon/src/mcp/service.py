@@ -33,7 +33,7 @@ from .horizon_adapter import (
     resolve_config_path,
     resolve_horizon_path,
 )
-from .run_store import RunStore
+from .run_store import STAGE_ORDER, RunStore
 from .retention import cleanup_report_output
 from .seen_store import SeenItemStore
 from ..services.webhook import WebhookNotifier
@@ -160,7 +160,7 @@ class HorizonPipelineService:
         for run in runs:
             run_id = run["run_id"]
             stages = {}
-            for stage in ("raw", "scored", "filtered", "researched", "enriched"):
+            for stage in STAGE_ORDER:
                 stages[stage] = self.run_store.has_stage(run_id, stage)
             items.append(
                 {
@@ -686,6 +686,7 @@ class HorizonPipelineService:
         threshold: float | None = None,
         source_stage: str = "scored",
         topic_dedup: bool = True,
+        apply_balance: bool = True,
         horizon_path: str | None = None,
         config_path: str | None = None,
     ) -> dict[str, Any]:
@@ -697,12 +698,14 @@ class HorizonPipelineService:
         )
 
         orchestrator = self._orchestrator(ctx)
-        filtering_result = await orchestrator.select_digest_items(
-            items,
-            threshold=threshold,
-            topic_dedup=topic_dedup,
-            log=False,
-        )
+        filter_options = {
+            "threshold": threshold,
+            "topic_dedup": topic_dedup,
+            "log": False,
+        }
+        if not apply_balance:
+            filter_options["apply_balance"] = False
+        filtering_result = await orchestrator.select_digest_items(items, **filter_options)
         important_items = filtering_result.items
         balanced_result = filtering_result.balanced_digest
         balanced_enabled = balanced_result.enabled
@@ -819,6 +822,103 @@ class HorizonPipelineService:
             "artifact": str(artifact_path.resolve()) if artifact_path else None,
             "meta": meta,
         }
+
+    async def evaluate_items(
+        self,
+        run_id: str,
+        source_stage: str = "researched",
+        horizon_path: str | None = None,
+        config_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Create comparable lightweight editorial evaluations for candidates."""
+        items, ctx = self._load_stage_items(
+            run_id=run_id,
+            stage=source_stage,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        )
+        if not items:
+            raise HorizonMcpError(code="HZ_EMPTY_INPUT", message="No items available for evaluation.")
+
+        selector = ctx.runtime.EditorialSelector(
+            self._ai_client(ctx), self._profiles(ctx)
+        )
+        result = await selector.evaluate_batch(items)
+        accepted = [item for item in items if item.id in set(result.succeeded_ids)]
+        artifact = self.run_store.save_items(
+            run_id, "evaluated", items_to_dicts(accepted)
+        ) if result.status != "failure" else None
+        meta = self.run_store.update_meta(
+            run_id,
+            {
+                "evaluation_status": result.status,
+                "evaluated_count": len(accepted),
+                "evaluation_failed_count": result.failed_count,
+                "evaluation_failed_ids": result.failed_ids,
+            },
+        )
+        return {
+            "run_id": run_id,
+            "status": result.status,
+            "evaluated": len(accepted),
+            "failed": result.failed_count,
+            "failed_ids": result.failed_ids,
+            "artifact": str(artifact.resolve()) if artifact else None,
+            "meta": meta,
+        }
+
+    async def select_items(
+        self,
+        run_id: str,
+        source_stage: str = "evaluated",
+        limit: int = 10,
+        min_topics: int = 4,
+        max_per_source: int = 2,
+        horizon_path: str | None = None,
+        config_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Select the final editorial set from all evaluated candidates."""
+        if not 1 <= limit <= 50:
+            raise HorizonMcpError(code="HZ_INVALID_INPUT", message="limit must be between 1 and 50.")
+        items, ctx = self._load_stage_items(
+            run_id=run_id,
+            stage=source_stage,
+            horizon_path=horizon_path,
+            config_path=config_path,
+        )
+        if not items:
+            raise HorizonMcpError(code="HZ_EMPTY_INPUT", message="No items available for final selection.")
+        selector = ctx.runtime.EditorialSelector(
+            self._ai_client(ctx), self._profiles(ctx)
+        )
+        selected, decision = await selector.select(
+            items, limit=limit, min_topics=min_topics, max_per_source=max_per_source
+        )
+        artifact = self.run_store.save_items(run_id, "selected", items_to_dicts(selected))
+        selection_path = self.run_store.write_json(run_id, "final_selection.json", decision)
+        meta = self.run_store.update_meta(
+            run_id,
+            {
+                "selection_status": "success",
+                "selection_limit": limit,
+                "selected_count": len(selected),
+                "selection_min_topics": min_topics,
+                "selection_max_per_source": max_per_source,
+                "selection_method": decision.get("method", "ai_jury"),
+            },
+        )
+        return {
+            "run_id": run_id,
+            "selected": len(selected),
+            "limit": limit,
+            "method": decision.get("method"),
+            "artifact": str(artifact.resolve()),
+            "selection": str(selection_path.resolve()),
+            "meta": meta,
+        }
+
+    def _ai_client(self, ctx: PipelineContext) -> Any:
+        return ctx.runtime.create_ai_client(ctx.config.ai)
 
     async def research_items(
         self,
@@ -977,6 +1077,8 @@ class HorizonPipelineService:
         )
 
         enrich_result: dict[str, Any] | None = None
+        evaluation_result: dict[str, Any] | None = None
+        selection_result: dict[str, Any] | None = None
         stage_for_summary = "filtered"
         research_result: dict[str, Any] | None = None
         if enrich and filter_result["kept"] > 0:
@@ -994,6 +1096,28 @@ class HorizonPipelineService:
                 )
                 if research_result["status"] != "failure":
                     enrich_source_stage = "researched"
+            try:
+                candidate_stage_exists = self.run_store.has_stage(
+                    run_id, enrich_source_stage
+                )
+            except FileNotFoundError:
+                candidate_stage_exists = False
+            if candidate_stage_exists:
+                evaluation_result = await self.evaluate_items(
+                    run_id=run_id,
+                    source_stage=enrich_source_stage,
+                    horizon_path=horizon_path,
+                    config_path=config_path,
+                )
+                if evaluation_result["status"] != "failure":
+                    selection_result = await self.select_items(
+                        run_id=run_id,
+                        source_stage="evaluated",
+                        limit=10,
+                        horizon_path=horizon_path,
+                        config_path=config_path,
+                    )
+                    enrich_source_stage = "selected"
             enrich_result = await self.enrich_items(
                 run_id=run_id,
                 source_stage=enrich_source_stage,
@@ -1028,6 +1152,8 @@ class HorizonPipelineService:
             "score": score_result,
             "filter": filter_result,
             "research": research_result,
+            "evaluation": evaluation_result,
+            "selection": selection_result,
             "enrich": enrich_result,
             "summaries": summaries,
             "meta": self.run_store.load_meta(run_id),
@@ -1135,7 +1261,7 @@ class HorizonPipelineService:
         )
 
     def _pick_summary_stage(self, run_id: str) -> str:
-        for stage in ("enriched", "researched", "filtered", "scored", "raw"):
+        for stage in reversed(STAGE_ORDER):
             if self.run_store.has_stage(run_id, stage):
                 return stage
         raise HorizonMcpError(

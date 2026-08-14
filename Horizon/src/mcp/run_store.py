@@ -19,6 +19,8 @@ STAGES = {
     "scored": "scored_items.json",
     "filtered": "filtered_items.json",
     "researched": "researched_items.json",
+    "evaluated": "evaluated_items.json",
+    "selected": "selected_items.json",
     "enriched": "enriched_items.json",
 }
 STAGE_ORDER = tuple(STAGES)
@@ -26,6 +28,8 @@ _META_PREFIXES = {
     "scored": ("scored_", "selected_count"),
     "filtered": ("filtered_", "filter_", "topic_", "balanced_"),
     "researched": ("research_", "researched_"),
+    "evaluated": ("evaluation_", "evaluated_"),
+    "selected": ("selection_", "selected_"),
     "enriched": ("enrichment_", "enriched_", "citation_count"),
     "summary": ("summary_",),
 }
@@ -76,6 +80,8 @@ class RunStore:
         run_dir = self.run_dir(run_id)
         for downstream in STAGE_ORDER[stage_index + 1 :]:
             (run_dir / STAGES[downstream]).unlink(missing_ok=True)
+        if stage_index < STAGE_ORDER.index("selected"):
+            (run_dir / "final_selection.json").unlink(missing_ok=True)
         for summary_path in run_dir.glob("summary-*.md"):
             summary_path.unlink()
         self._invalidate_meta(run_id, (*STAGE_ORDER[stage_index + 1 :], "summary"))
@@ -89,6 +95,8 @@ class RunStore:
         run_dir = self.run_dir(run_id)
         for invalidated in STAGE_ORDER[stage_index:]:
             (run_dir / STAGES[invalidated]).unlink(missing_ok=True)
+        if stage_index <= STAGE_ORDER.index("selected"):
+            (run_dir / "final_selection.json").unlink(missing_ok=True)
         for summary_path in run_dir.glob("summary-*.md"):
             summary_path.unlink()
         self._invalidate_meta(run_id, (*STAGE_ORDER[stage_index:], "summary"))

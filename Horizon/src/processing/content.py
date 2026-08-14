@@ -1,6 +1,7 @@
 """Select bounded source content for profile-driven AI stages."""
 
 from dataclasses import dataclass
+import re
 from typing import Literal
 
 
@@ -58,3 +59,68 @@ def select_content(
         + markers[2]
         + closing
     )
+
+
+def select_matching_content(
+    content: str,
+    terms: list[str],
+    max_chars: int,
+    *,
+    context_chars: int = 500,
+) -> str:
+    """Return bounded source windows around exact terms, in document order."""
+    text = content.strip()
+    normalized_terms = list(
+        dict.fromkeys(term.strip().casefold() for term in terms if term.strip())
+    )
+    if not text or not normalized_terms or max_chars <= 0:
+        return ""
+
+    lowered = text.casefold()
+    matches: list[tuple[int, int]] = []
+    for term in normalized_terms:
+        start = 0
+        while len(matches) < 12:
+            index = lowered.find(term, start)
+            if index < 0:
+                break
+            matches.append((index, index + len(term)))
+            start = index + max(len(term), 1)
+
+    if not matches:
+        return ""
+
+    longest_term = max(len(term) for term in normalized_terms)
+    effective_context = min(
+        context_chars,
+        max(0, (max_chars - longest_term - 40) // 2),
+    )
+    windows = sorted(
+        (
+            max(0, start - effective_context),
+            min(len(text), end + effective_context),
+        )
+        for start, end in matches
+    )
+    merged: list[list[int]] = []
+    for start, end in windows:
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+
+    excerpts: list[str] = []
+    remaining = max_chars
+    for index, (start, end) in enumerate(merged, start=1):
+        marker = f"[Matching excerpt {index}]\n"
+        if remaining <= len(marker):
+            break
+        excerpt = re.sub(r"\s+", " ", text[start:end]).strip()
+        excerpt = excerpt[: remaining - len(marker)].rstrip()
+        if not excerpt:
+            continue
+        excerpts.append(marker + excerpt)
+        remaining -= len(marker) + len(excerpt) + 2
+        if remaining <= 0:
+            break
+    return "\n\n".join(excerpts)

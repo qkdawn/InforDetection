@@ -13,6 +13,8 @@ The MCP layer does not reimplement Horizon business logic. It reuses the existin
 | `hz_score_items` | Score items from a stage into `scored` |
 | `hz_filter_items` | Filter scored items into `filtered` |
 | `hz_research_items` | Research selected items into `researched` |
+| `hz_evaluate_items` | Lightly evaluate researched candidates into `evaluated` |
+| `hz_select_items` | Select the final editorial set into `selected` |
 | `hz_enrich_items` | Enrich researched items into `enriched` |
 | `hz_generate_summary` | Generate markdown from a stage |
 | `hz_run_pipeline` | Run fetch -> score -> filter -> research -> enrich -> summarize |

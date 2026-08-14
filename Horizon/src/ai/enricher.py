@@ -21,13 +21,16 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from .client import AIClient
 from .localization import normalize_language
 from .prompting.enrichment import (
+    MAX_SOURCE_READ_REQUESTS,
     MAX_TOOL_REQUESTS,
     artifact_prompt,
     block_prompt,
     editorial_tool_results_text,
     event_narration_prompt,
     game_insight_prompt,
+    item_brief_context,
     item_context,
+    source_read_planning_prompt,
     systems_question_prompt,
     tool_planning_prompt,
     tool_results_text,
@@ -35,6 +38,7 @@ from .prompting.enrichment import (
 from .utils import parse_json_response
 from ..models import ArtifactSource, ContentArtifact, ContentBlock, ContentItem
 from ..processing.profiles import LoadedProfile, ProfileBlock, ProfileRegistry
+from ..processing.content import select_content, select_matching_content, split_content
 from ..processing.tools import ToolRegistry, ToolResult
 
 logger = logging.getLogger(__name__)
@@ -50,6 +54,39 @@ class ToolRequest(BaseModel):
 
 class ToolPlan(BaseModel):
     tool_requests: list[ToolRequest] = Field(default_factory=list)
+
+
+class SourceReadArguments(BaseModel):
+    mode: Literal["sample", "search"]
+    terms: list[str] = Field(default_factory=list, max_length=5)
+
+    @model_validator(mode="after")
+    def validate_arguments(self) -> "SourceReadArguments":
+        if self.mode == "sample" and self.terms:
+            raise ValueError("sample source reads must not include terms")
+        if self.mode == "search" and not any(term.strip() for term in self.terms):
+            raise ValueError("search source reads require at least one term")
+        return self
+
+
+class SourceReadRequest(BaseModel):
+    tool: Literal["read_source"]
+    arguments: SourceReadArguments
+    purpose: str
+
+    @field_validator("purpose")
+    @classmethod
+    def validate_purpose(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("source read purpose must not be empty")
+        return value
+
+
+class SourceReadPlan(BaseModel):
+    tool_requests: list[SourceReadRequest] = Field(
+        min_length=1,
+        max_length=MAX_SOURCE_READ_REQUESTS,
+    )
 
 
 class GeneratedArtifact(BaseModel):
@@ -600,16 +637,11 @@ class ContentEnricher:
             raise ValueError("Event narration must include the required event block")
         event.primary = event_block.primary
 
-        insight_generated = await self._complete_model(
-            GeneratedInsight,
-            system=game_insight_prompt(profile, language, insight_block),
+        source_plan = await self._complete_model(
+            SourceReadPlan,
+            system=source_read_planning_prompt(profile, language),
             user=(
-                item_context(
-                    item,
-                    profile,
-                    include_content=True,
-                    include_research=False,
-                )
+                item_brief_context(item)
                 + "\n\n# Event narration from the first editor\n\n"
                 + json.dumps(
                     {
@@ -618,6 +650,30 @@ class ContentEnricher:
                     },
                     ensure_ascii=False,
                 )
+            ),
+            error_message="Invalid source read plan",
+        )
+        source_read_results = self._read_source(
+            item,
+            profile,
+            source_plan.tool_requests,
+        )
+
+        insight_generated = await self._complete_model(
+            GeneratedInsight,
+            system=game_insight_prompt(profile, language, insight_block),
+            user=(
+                item_brief_context(item)
+                + "\n\n# Event narration from the first editor\n\n"
+                + json.dumps(
+                    {
+                        "title": event_generated.title,
+                        "content": event.content,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n# Original-source evidence returned by `read_source`\n\n"
+                + source_read_results
                 + "\n\n# Collected reference results\n\n"
                 + reference_text
             ),
@@ -678,6 +734,60 @@ class ContentEnricher:
         for block in blocks:
             block.primary = configured_by_id[block.id].primary
         return GeneratedArtifact(title=event_generated.title, blocks=blocks)
+
+    @staticmethod
+    def _read_source(
+        item: ContentItem,
+        profile: LoadedProfile,
+        requests: list[SourceReadRequest],
+    ) -> str:
+        """Execute bounded reads against the original body, excluding comments."""
+        source = split_content(item.content).main
+        if not source:
+            return "The `read_source` tool found no original source body."
+
+        remaining = min(profile.definition.content.enrichment_max_chars, 8000)
+        rendered: list[str] = []
+        seen: set[tuple[str, tuple[str, ...]]] = set()
+        for index, request in enumerate(requests, start=1):
+            arguments = request.arguments
+            terms = tuple(term.strip() for term in arguments.terms if term.strip())
+            key = (arguments.mode, terms)
+            if key in seen or remaining <= 0:
+                continue
+            seen.add(key)
+
+            read_limit = min(
+                5000 if arguments.mode == "sample" else 2500,
+                remaining,
+            )
+            if arguments.mode == "sample":
+                excerpt = select_content(
+                    source,
+                    read_limit,
+                    profile.definition.content.sampling,
+                )
+            else:
+                excerpt = select_matching_content(source, list(terms), read_limit)
+
+            result_id = f"read-source-{index}"
+            if excerpt:
+                rendered.append(
+                    f"<read_source_result id=\"{result_id}\" mode=\"{arguments.mode}\">\n"
+                    f"Purpose: {request.purpose}\n"
+                    f"{excerpt}\n"
+                    "</read_source_result>"
+                )
+                remaining -= len(excerpt)
+            else:
+                rendered.append(
+                    f"<read_source_result id=\"{result_id}\" mode=\"{arguments.mode}\">\n"
+                    f"Purpose: {request.purpose}\n"
+                    "No matching source text was found.\n"
+                    "</read_source_result>"
+                )
+
+        return "\n\n".join(rendered) or "The `read_source` tool returned no results."
 
     @staticmethod
     def _validate_event_block(

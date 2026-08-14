@@ -1,4 +1,8 @@
-from src.processing.content import select_content, split_content
+from src.processing.content import (
+    select_content,
+    select_matching_content,
+    split_content,
+)
 
 
 def test_split_content_separates_appended_comments() -> None:
@@ -23,3 +27,17 @@ def test_head_middle_tail_sampling_preserves_article_ending() -> None:
     assert selected.startswith("[Opening excerpt]")
     assert "MIDDLE-MARKER" in selected
     assert selected.endswith("ENDING-MARKER")
+
+
+def test_matching_selection_returns_bounded_source_windows() -> None:
+    content = "Opening context. " + "A" * 800 + "Shared condition changes later choices."
+
+    selected = select_matching_content(content, ["Shared condition"], 300)
+
+    assert "[Matching excerpt 1]" in selected
+    assert "Shared condition changes later choices." in selected
+    assert len(selected) <= 300
+
+
+def test_matching_selection_returns_empty_without_exact_match() -> None:
+    assert select_matching_content("A source body", ["missing phrase"], 300) == ""

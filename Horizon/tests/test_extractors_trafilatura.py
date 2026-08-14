@@ -5,11 +5,22 @@ import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
 
 from src.extractors import TrafilaturaExtractor
 from src.models import TrafilaturaExtractorConfig
 
 URL = "https://example.com/article"
+
+
+@pytest.fixture(autouse=True)
+def _public_test_dns():
+    """Keep extractor unit tests independent from local Fake-IP DNS."""
+    with patch(
+        "src.url_security._resolve_hostname",
+        new=AsyncMock(return_value={"93.184.216.34"}),
+    ):
+        yield
 
 
 def _extractor() -> TrafilaturaExtractor:

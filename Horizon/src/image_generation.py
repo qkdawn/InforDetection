@@ -80,7 +80,7 @@ class ConceptImageConfig:
             model=os.getenv("HORIZON_IMAGE_MODEL", "gpt-image-2"),
             size=os.getenv("HORIZON_IMAGE_SIZE", "1536x1024"),
             cover_size=os.getenv("HORIZON_COVER_IMAGE_SIZE", "1024x1536"),
-            mechanism_size=os.getenv("HORIZON_MECHANISM_IMAGE_SIZE", "1792x768"),
+            mechanism_size=os.getenv("HORIZON_MECHANISM_IMAGE_SIZE", "1792x1056"),
             composition_size=os.getenv("HORIZON_COMPOSITION_IMAGE_SIZE", "1024x1536"),
             quality=os.getenv("HORIZON_IMAGE_QUALITY", "low"),
             cover_quality=os.getenv("HORIZON_COVER_IMAGE_QUALITY", "medium"),
@@ -276,7 +276,7 @@ def build_mechanism_prompt(item: dict[str, Any]) -> str:
                 "that best reveal how it actually unfolded."
             ),
             (
-                "Composition: native ultra-wide 21:9 canvas. Fill the entire canvas with one "
+                "Composition: native wide 17:10 canvas. Fill the entire canvas with one "
                 "uninterrupted horizontal strip of five to seven equal vertical panels separated "
                 "by fine ink rules. Each panel shows one distinct action or state, with a clear "
                 "left-to-right rhythm like an illustrated field notebook. Use the full canvas "
@@ -299,7 +299,7 @@ def build_mechanism_prompt(item: dict[str, Any]) -> str:
                 "multiple rows."
             ),
             (
-                "Deliver a publication-ready 21:9 storyboard that remains complete and "
+                "Deliver a publication-ready 17:10 storyboard that remains complete and "
                 "understandable when scaled down without cropping."
             ),
         ]

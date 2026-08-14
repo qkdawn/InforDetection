@@ -827,6 +827,7 @@ class HorizonOrchestrator:
         *,
         threshold: Optional[float] = None,
         topic_dedup: bool = True,
+        apply_balance: bool = True,
         log: bool = True,
     ) -> FilteringPipelineResult:
         """Select final digest items using the same stages for every entry point."""
@@ -856,7 +857,11 @@ class HorizonOrchestrator:
             ),
             reverse=True,
         )
-        balanced = self.apply_balanced_digest(eligible, log=log)
+        balanced = (
+            self.apply_balanced_digest(eligible, log=log)
+            if apply_balance
+            else BalancedDigestResult(items=eligible)
+        )
         return FilteringPipelineResult(
             items=balanced.items,
             threshold_count=initial.threshold_count,
