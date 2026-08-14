@@ -540,11 +540,11 @@ def _base_css(accent: str) -> str:
     .insight-card-layout .editorial-hero-media {{ display: none; }}
     .insight-card-layout .editorial-hero-copy {{ width: 100%; padding: 42px 48px 24px; }}
     .insight-card-layout .editorial-title {{ height: 130px; width: 900px; font-size: 52px; }}
-    .insight-card-layout .bottom-board {{ top: 250px; bottom: 24px; grid-template-columns: 1fr; grid-template-rows: 43% 57%; }}
+    .insight-card-layout .bottom-board {{ top: 322px; bottom: 24px; grid-template-columns: 1fr; grid-template-rows: 43% 57%; }}
     .insight-card-layout .question-panel {{ border-left: 0; border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
-    .insight-card-layout .panel-heading {{ font-size: 32px; line-height: 1.3; }}
-    .insight-card-layout .panel-body {{ font-size: 28px; line-height: 1.52; }}
-    .insight-card-layout .question-content .systems-question p {{ font-size: 28px; line-height: 1.52; }}
+    .insight-card-layout .panel-heading {{ font-size: calc(32px * var(--copy-scale)); line-height: 1.3; }}
+    .insight-card-layout .panel-body {{ font-size: calc(28px * var(--copy-scale)); line-height: 1.52; }}
+    .insight-card-layout .question-content .systems-question p {{ font-size: calc(28px * var(--copy-scale)); line-height: 1.52; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
     .cover-page {{ background: var(--paper); color: var(--ink); }}
     .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: var(--ink); }}
@@ -632,11 +632,12 @@ def _fit_script() -> str:
     (() => {
       const fitCopy = () => {
         document.querySelectorAll('[data-fit-copy]').forEach((copy) => {
-          let scale = 1;
-          while (copy.scrollHeight > copy.clientHeight && scale > 0.52) {
+          let scale = parseFloat(copy.style.getPropertyValue('--copy-scale')) || 1;
+          while (copy.scrollHeight > copy.clientHeight + 1 && scale > 0.64) {
             scale -= 0.02;
             copy.style.setProperty('--copy-scale', scale.toFixed(2));
           }
+          copy.dataset.overflow = copy.scrollHeight > copy.clientHeight + 1 ? 'true' : 'false';
         });
         document.querySelectorAll('[data-fit-title]').forEach((title) => {
           let size = parseFloat(getComputedStyle(title).fontSize);

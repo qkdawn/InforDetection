@@ -330,7 +330,8 @@ def test_item_card_body_type_is_readable_at_thumbnail_size():
     assert "calc(17px * var(--copy-scale))/1.58" in card
     assert "calc(15px * var(--copy-scale))/1.58" in card
     assert "size > 42" in card
-    assert "scale > 0.52" in card
+    assert "scale > 0.64" in card
+    assert "copy.dataset.overflow" in card
 
 
 def test_insight_card_stacks_sections_vertically_at_full_width():
@@ -344,8 +345,16 @@ def test_insight_card_stacks_sections_vertically_at_full_width():
 
     assert 'class="page item-page insight-card-layout"' in detail_card
     assert (
-        ".insight-card-layout .bottom-board { top: 250px; bottom: 24px; "
+        ".insight-card-layout .bottom-board { top: 322px; bottom: 24px; "
         "grid-template-columns: 1fr; grid-template-rows: 43% 57%; }"
+    ) in detail_card
+    assert (
+        ".insight-card-layout .panel-heading { "
+        "font-size: calc(32px * var(--copy-scale));"
+    ) in detail_card
+    assert (
+        ".insight-card-layout .panel-body { "
+        "font-size: calc(28px * var(--copy-scale));"
     ) in detail_card
     assert (
         ".insight-card-layout .question-panel { border-left: 0; "
