@@ -332,8 +332,10 @@ def test_item_card_body_type_is_readable_at_thumbnail_size():
     assert "calc(20px * var(--copy-scale))/1.32" in card
     assert "calc(17px * var(--copy-scale))/1.58" in card
     assert "calc(15px * var(--copy-scale))/1.58" in card
-    assert "size > 42" in card
-    assert "scale > 0.64" in card
+    assert "const minimum = 0.64" in card
+    assert "for (let attempt = 0; attempt < 10; attempt += 1)" in card
+    assert "clampToWholeLines" in card
+    assert "webkitLineClamp" in card
     assert "copy.dataset.overflow" in card
 
 

@@ -634,22 +634,103 @@ def _fit_script() -> str:
     return """
     <script>
     (() => {
+      const overflows = (element) => (
+        element.scrollHeight > element.clientHeight + 1 ||
+        element.scrollWidth > element.clientWidth + 1
+      );
+
+      const clearClamp = (copy) => {
+        const body = copy.matches('.agent-body')
+          ? copy
+          : copy.querySelector('.panel-body:last-of-type');
+        if (!body) return;
+        body.style.removeProperty('display');
+        body.style.removeProperty('-webkit-box-orient');
+        body.style.removeProperty('-webkit-line-clamp');
+        body.style.removeProperty('overflow');
+      };
+
+      const clampToWholeLines = (copy) => {
+        const body = copy.matches('.agent-body')
+          ? copy
+          : copy.querySelector('.panel-body:last-of-type');
+        if (!body) return false;
+        const copyRect = copy.getBoundingClientRect();
+        const bodyRect = body.getBoundingClientRect();
+        const copyStyle = getComputedStyle(copy);
+        const bodyStyle = getComputedStyle(body);
+        const lineHeight = parseFloat(bodyStyle.lineHeight);
+        const bottomPadding = parseFloat(copyStyle.paddingBottom) || 0;
+        const available = copyRect.bottom - bodyRect.top - bottomPadding;
+        const lines = Math.floor(available / lineHeight);
+        if (!Number.isFinite(lines) || lines < 1) return false;
+        body.style.display = '-webkit-box';
+        body.style.webkitBoxOrient = 'vertical';
+        body.style.webkitLineClamp = String(lines);
+        body.style.overflow = 'hidden';
+        return true;
+      };
+
+      const fitScaledCopy = (copy) => {
+        const minimum = 0.64;
+        clearClamp(copy);
+        copy.style.setProperty('--copy-scale', '1');
+        copy.dataset.clamped = 'false';
+        if (!overflows(copy)) {
+          copy.dataset.overflow = 'false';
+          return;
+        }
+
+        copy.style.setProperty('--copy-scale', minimum.toFixed(3));
+        if (overflows(copy)) {
+          copy.dataset.clamped = clampToWholeLines(copy) ? 'true' : 'false';
+          copy.dataset.overflow = overflows(copy) ? 'true' : 'false';
+          return;
+        }
+
+        let low = minimum;
+        let high = 1;
+        let best = minimum;
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const scale = (low + high) / 2;
+          copy.style.setProperty('--copy-scale', scale.toFixed(3));
+          if (overflows(copy)) {
+            high = scale;
+          } else {
+            best = scale;
+            low = scale;
+          }
+        }
+        copy.style.setProperty('--copy-scale', Math.max(minimum, best - 0.005).toFixed(3));
+        copy.dataset.overflow = overflows(copy) ? 'true' : 'false';
+      };
+
+      const fitTitle = (title) => {
+        const initial = parseFloat(getComputedStyle(title).fontSize);
+        const minimum = 42;
+        title.style.fontSize = `${initial}px`;
+        if (!overflows(title)) return;
+        title.style.fontSize = `${minimum}px`;
+        if (overflows(title)) return;
+        let low = minimum;
+        let high = initial;
+        let best = minimum;
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const size = (low + high) / 2;
+          title.style.fontSize = `${size}px`;
+          if (overflows(title)) {
+            high = size;
+          } else {
+            best = size;
+            low = size;
+          }
+        }
+        title.style.fontSize = `${Math.max(minimum, best - 0.5)}px`;
+      };
+
       const fitCopy = () => {
-        document.querySelectorAll('[data-fit-copy]').forEach((copy) => {
-          let scale = parseFloat(copy.style.getPropertyValue('--copy-scale')) || 1;
-          while (copy.scrollHeight > copy.clientHeight + 1 && scale > 0.64) {
-            scale -= 0.02;
-            copy.style.setProperty('--copy-scale', scale.toFixed(2));
-          }
-          copy.dataset.overflow = copy.scrollHeight > copy.clientHeight + 1 ? 'true' : 'false';
-        });
-        document.querySelectorAll('[data-fit-title]').forEach((title) => {
-          let size = parseFloat(getComputedStyle(title).fontSize);
-          while (title.scrollHeight > title.clientHeight && size > 42) {
-            size -= 2;
-            title.style.fontSize = `${size}px`;
-          }
-        });
+        document.querySelectorAll('[data-fit-copy]').forEach(fitScaledCopy);
+        document.querySelectorAll('[data-fit-title]').forEach(fitTitle);
       };
       fitCopy();
       requestAnimationFrame(fitCopy);
