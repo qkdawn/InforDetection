@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from src.reporting import (
     BODY_FONT_FAMILY,
     COVER_ACCENT,
     PRODUCT_COLOR,
     REPORT_THEME,
+    TOPIC_CARD_THEMES,
     TITLE_FONT_FAMILY,
     build_card_html,
     build_markdown,
     build_report_model,
+    generate_xiaohongshu_report,
 )
 
 
@@ -66,6 +73,96 @@ def _item(
     }
 
 
+def _visual_batch(*, enabled: bool = True, failed: int = 0) -> dict:
+    return {
+        "enabled": enabled,
+        "model": "test-image-model",
+        "generated": 0,
+        "cached": 0,
+        "failed": failed,
+        "images": [],
+        "errors": {},
+    }
+
+
+def test_report_refuses_to_render_without_the_generated_cover(
+    monkeypatch, tmp_path
+) -> None:
+    agent = MagicMock()
+    agent.generate = AsyncMock(
+        return_value={
+            "concept_images": _visual_batch(),
+            "mechanism_images": _visual_batch(),
+            "composition_images": _visual_batch(enabled=False),
+            "complete_items": 1,
+            "orchestrated_items": 0,
+            "requested_items": 1,
+        }
+    )
+    monkeypatch.setattr("src.reporting.CardVisualAgent", lambda: agent)
+    monkeypatch.setattr(
+        "src.reporting.generate_cover_image",
+        AsyncMock(
+            return_value={
+                "enabled": True,
+                "image_url": None,
+                "failed": 1,
+                "error": "upstream_error: Upstream error, please retry.",
+            }
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="refusing to render a fallback cover"):
+        asyncio.run(
+            generate_xiaohongshu_report(
+                run_id="run-missing-cover",
+                items=[_item("cover", 9)],
+                meta={"raw_count": 1, "date": "2026-08-18"},
+                max_cards=4,
+                output_root=tmp_path,
+            )
+        )
+
+
+def test_report_refuses_to_render_without_every_concept_image(
+    monkeypatch, tmp_path
+) -> None:
+    agent = MagicMock()
+    agent.generate = AsyncMock(
+        return_value={
+            "concept_images": _visual_batch(failed=1),
+            "mechanism_images": _visual_batch(),
+            "composition_images": _visual_batch(enabled=False),
+            "complete_items": 0,
+            "orchestrated_items": 0,
+            "requested_items": 1,
+        }
+    )
+    monkeypatch.setattr("src.reporting.CardVisualAgent", lambda: agent)
+    monkeypatch.setattr(
+        "src.reporting.generate_cover_image",
+        AsyncMock(
+            return_value={
+                "enabled": True,
+                "image_url": "data:image/png;base64,COVER",
+                "failed": 0,
+                "error": None,
+            }
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="refusing to render fallback cards"):
+        asyncio.run(
+            generate_xiaohongshu_report(
+                run_id="run-missing-concept",
+                items=[_item("concept", 9)],
+                meta={"raw_count": 1, "date": "2026-08-18"},
+                max_cards=4,
+                output_root=tmp_path,
+            )
+        )
+
+
 def test_report_keeps_every_selected_item():
     model = build_report_model(
         run_id="run-test",
@@ -89,6 +186,78 @@ def test_report_keeps_every_selected_item():
     assert "先验证什么" not in markdown
     assert "游戏创意雷达" in markdown
     assert "抽象模型" not in markdown
+
+
+def test_report_preserves_editorial_paragraphs_and_bold_emphasis():
+    item = _item("rich-copy", 9)
+    blocks = item["processing"]["artifacts"]["zh"]["blocks"]
+    blocks[0]["content"] = (
+        "第一段先讲清变化，**身体先于地图读懂海面**。\n\n"
+        "第二段说明这种变化如何影响下一次判断。"
+    )
+    blocks[2]["content"] = (
+        "空间不只是等待辨认的物体。\n\n"
+        "它也可以成为**一组先于物体显现的后果**。"
+    )
+    blocks[3]["content"] = (
+        "行动改变了下一次能够获得的线索。\n\n"
+        "连续反馈也可能**把错误理解固化成习惯**。"
+    )
+
+    model = build_report_model(
+        run_id="run-rich-copy",
+        items=[item],
+        meta={"raw_count": 1},
+    )
+    markdown = build_markdown(model)
+    cards = build_card_html(model, max_cards=4)
+    card = "".join(spec["html"] for spec in cards[2:4])
+
+    assert model["items"][0]["what_happened"] == (
+        "第一段先讲清变化，身体先于地图读懂海面。 "
+        "第二段说明这种变化如何影响下一次判断。"
+    )
+    assert "**身体先于地图读懂海面**。\n\n第二段" in markdown
+    assert "**一组先于物体显现的后果**" in markdown
+    assert "<p>第一段先讲清变化，<strong>身体先于地图读懂海面</strong>。</p>" in card
+    assert "<p>第二段说明这种变化如何影响下一次判断。</p>" in card
+    assert "<strong>把错误理解固化成习惯</strong>" in card
+    assert "**身体先于地图读懂海面**" not in card
+    assert ".rich-copy p + p { margin-top: calc(9px * var(--copy-scale)); }" in card
+    assert ".rich-copy strong { color:" in card
+    assert "font-size: inherit; font-weight: 900;" in card
+    assert "copy.querySelector('.rich-copy')" in card
+    assert "const contentOverflows = (element)" in card
+    assert "'.panel-heading, .rich-copy p'" in card
+    assert "nodeBounds.bottom > bottom + 1" in card
+
+
+def test_report_reduces_unapproved_markdown_and_html_to_safe_copy():
+    item = _item("safe-copy", 9)
+    blocks = item["processing"]["artifacts"]["zh"]["blocks"]
+    blocks[2]["content"] = (
+        "<script>alert('unsafe')</script>第一段包含[外链](https://example.com)。\n\n"
+        "## 不应成为标题\n\n- 不应成为列表\n\n"
+        "普通的**允许重点**仍然保留。"
+    )
+
+    model = build_report_model(
+        run_id="run-safe-copy",
+        items=[item],
+        meta={"raw_count": 1},
+    )
+    markdown = build_markdown(model)
+    card = build_card_html(model, max_cards=4)[3]["html"]
+
+    assert "alert('unsafe')" not in card
+    assert "<a " not in card
+    assert "<h2>不应成为标题</h2>" not in card
+    assert "<ul" not in card
+    assert "<li" not in card
+    assert "href=" not in card
+    assert "<strong>允许重点</strong>" in card
+    assert "[外链](https://example.com)" not in markdown
+    assert "**允许重点**" in markdown
 
 
 def test_card_deck_respects_limit_without_truncating_report_model():
@@ -151,7 +320,7 @@ def test_card_deck_respects_limit_without_truncating_report_model():
     assert 'class="page directory-page"' in cards[1]["html"]
     assert 'class="page item-page event-card-layout"' in cards[2]["html"]
     assert f'--paper: {REPORT_THEME["paper"]}' in cards[0]["html"]
-    assert ".cover-page { background: var(--paper)" in cards[0]["html"]
+    assert ".cover-page { background: #F0EBDC" in cards[0]["html"]
     assert ".item-page { background: var(--paper)" in cards[2]["html"]
     assert (
         ".cover-count-panel { position: absolute; right: 54px; "
@@ -249,7 +418,7 @@ def test_card_displays_the_native_mechanism_visual_without_empty_side_bands():
     assert 'class="mechanism-fallback"' not in card
 
 
-def test_item_card_uses_a_warm_paper_background_palette():
+def test_item_card_uses_its_topic_palette():
     model = build_report_model(
         run_id="run-warm-paper-card",
         items=[_item("a", 9)],
@@ -258,14 +427,25 @@ def test_item_card_uses_a_warm_paper_background_palette():
 
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
-    assert f'--paper: {REPORT_THEME["paper"]}' in card
-    assert f'--paper-soft: {REPORT_THEME["paper_soft"]}' in card
-    assert f'--ink: {REPORT_THEME["ink"]}' in card
-    assert f'--muted: {REPORT_THEME["muted"]}' in card
-    assert f'--line: {REPORT_THEME["line"]}' in card
+    topic_theme = TOPIC_CARD_THEMES["player-market"]
+    assert f'--paper: {topic_theme["paper"]}' in card
+    assert f'--paper-soft: {topic_theme["paper_soft"]}' in card
+    assert f'--panel: {topic_theme["panel"]}' in card
+    assert f'--ink: {topic_theme["ink"]}' in card
+    assert f'--muted: {topic_theme["muted"]}' in card
+    assert f'--line: {topic_theme["line"]}' in card
 
 
-def test_item_card_uses_deep_ink_for_long_form_body_copy():
+def test_report_uses_the_original_deep_green_as_its_dominant_surface():
+    assert REPORT_THEME["green"] == "#16372F"
+    assert REPORT_THEME["paper"] == "#061812"
+    assert REPORT_THEME["paper_soft"] == "#0B2119"
+    assert REPORT_THEME["brand"] == "#E46B5B"
+    assert PRODUCT_COLOR == REPORT_THEME["brand"]
+    assert COVER_ACCENT == "#D6BC63"
+
+
+def test_item_card_uses_light_ink_for_long_form_body_copy():
     model = build_report_model(
         run_id="run-readable-body-copy",
         items=[_item("a", 9)],
@@ -293,12 +473,16 @@ def test_report_hides_internal_research_citation_ids_from_reader_copy():
     blocks = item["processing"]["artifacts"]["zh"]["blocks"]
     blocks[0]["content"] = (
         "正文事实。[research-what_happened-1-1] "
-        "下一句。[tool-2-3]"
+        "下一句。[tool-2-3] "
+        "圆括号（research-what_happened-1-1, "
+        "research-fresh_relationship-1-1）。"
     )
     blocks[2]["content"] = (
         "设计关系。[research-fresh_relationship-1-1]"
         "[research-fresh_relationship-2-3]"
-        "中文括号【research-fresh_relationship-2-2】"
+        "中文括号【research-fresh_relationship-2-2】。"
+        "英文括号(tool-2-3, research-fresh_relationship-1-1)。"
+        "裸编号 research-fresh_relationship-3-1 不展示。"
     )
     model = build_report_model(
         run_id="run-hidden-citations",
@@ -311,12 +495,16 @@ def test_report_hides_internal_research_citation_ids_from_reader_copy():
 
     assert "正文事实。 下一句。" in markdown
     assert "设计关系。中文括号" in card
+    assert "圆括号。" in markdown
+    assert "英文括号。裸编号 不展示。" in card
     assert "[research-" not in markdown
     assert "[research-" not in card
     assert "[tool-" not in markdown
     assert "[tool-" not in card
     assert "【research-" not in markdown
     assert "【research-" not in card
+    assert "research-" not in markdown
+    assert "research-" not in card
 
 
 def test_item_card_body_type_is_readable_at_thumbnail_size():
@@ -350,9 +538,12 @@ def test_insight_card_stacks_sections_vertically_at_full_width():
 
     assert 'class="page item-page insight-card-layout"' in detail_card
     assert (
-        ".insight-card-layout .bottom-board { top: 322px; bottom: 24px; "
-        "grid-template-columns: 1fr; grid-template-rows: 43% 57%; }"
+        ".insight-card-layout .bottom-board { top: 72px; bottom: 24px; "
+        "grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }"
     ) in detail_card
+    assert '<section class="editorial-hero">' not in detail_card
+    assert 'class="editorial-tags"' not in detail_card
+    assert 'class="editorial-title"' not in detail_card
     assert (
         ".insight-card-layout .panel-heading { "
         "font-size: calc(32px * var(--copy-scale));"
@@ -365,6 +556,16 @@ def test_insight_card_stacks_sections_vertically_at_full_width():
         ".insight-card-layout .question-panel { border-left: 0; "
         "border-top: 1px solid"
     ) in detail_card
+    assert (
+        ".insight-card-layout .design-panel, .insight-card-layout .question-panel "
+        "{ grid-template-columns: 120px minmax(0, 1fr); }"
+    ) in detail_card
+    assert (
+        ".event-card-layout .section-index strong, "
+        ".insight-card-layout .section-index strong { font-size: 30px; }"
+    ) in detail_card
+    assert "font-size: 30px; font-weight: 900;" in detail_card
+    assert "writing-mode: vertical-rl; text-orientation: upright;" in detail_card
 
 
 def test_event_copy_is_vertically_centered_beside_its_heading():
@@ -380,6 +581,51 @@ def test_event_copy_is_vertically_centered_beside_its_heading():
         ".event-body { --copy-scale: 1; height: 178px; padding: 0 30px; "
         "display: flex; align-items: center; overflow: hidden; }"
     ) in card
+    assert (
+        ".event-card-layout .event-body { height: 100%; padding: 34px 42px; "
+        "align-items: center;"
+    ) in card
+    assert (
+        ".event-card-layout .agent-lead { align-items: center; padding: 40px 18px; "
+        "text-align: center; }"
+    ) in card
+    assert "text-align: center; text-wrap: balance;" in card
+    assert "<h2 data-fit-event-heading>" in card
+    assert "const fitEventHeading = (heading)" in card
+    assert "const minimum = 28;" in card
+    assert "heading.dataset.lines = 'single';" in card
+    assert "heading.dataset.lines = 'wrapped';" in card
+
+
+def test_event_and_insight_cards_split_their_lower_sections_evenly():
+    model = build_report_model(
+        run_id="run-primary-copy-space",
+        items=[_item("event-space", 9)],
+        meta={"raw_count": 1},
+    )
+
+    card = build_card_html(model, max_cards=4)[2]["html"]
+
+    assert (
+        ".event-card-layout .event-strip { top: 452px; height: 482px; "
+        "align-items: stretch; }"
+    ) in card
+    assert (
+        ".event-card-layout .mechanism-board { top: 934px; bottom: 24px; "
+        "height: auto; grid-template-columns: 120px minmax(0, 1fr); }"
+    ) in card
+    assert (
+        ".event-card-layout .section-index b, "
+        ".insight-card-layout .section-index b { margin: 0;"
+    ) in card
+    assert "font-size: 30px; font-weight: 900;" in card
+    assert "writing-mode: vertical-rl; text-orientation: upright;" in card
+
+    insight_card = build_card_html(model, max_cards=4)[3]["html"]
+    assert (
+        ".insight-card-layout .bottom-board { top: 72px; bottom: 24px; "
+        "grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }"
+    ) in insight_card
 
 
 def test_report_embeds_reusable_display_and_body_font_roles():
@@ -404,7 +650,7 @@ def test_report_embeds_reusable_display_and_body_font_roles():
     assert "font: 500 14px var(--font-mono)" in card
 
 
-def test_report_css_contains_no_legacy_dark_green_theme_tokens():
+def test_report_css_uses_branded_cover_and_topic_surface_tokens():
     model = build_report_model(
         run_id="run-paper-only-theme",
         items=[_item("a", 9)],
@@ -414,20 +660,52 @@ def test_report_css_contains_no_legacy_dark_green_theme_tokens():
     html = "".join(card["html"] for card in build_card_html(model, max_cards=3))
 
     for token in (
-        "#03150f",
-        "#07140f",
-        "#071b14",
-        "#0b2a20",
-        "#0d1814",
-        "#101512",
-        "#17382f",
-        "#214a3f",
-        "#244c3d",
-        "#315c50",
-        "rgba(3, 21, 15",
-        "rgba(23, 56, 47",
+        REPORT_THEME["green"],
+        REPORT_THEME["paper"],
+        TOPIC_CARD_THEMES["player-market"]["paper"],
+        TOPIC_CARD_THEMES["player-market"]["panel"],
+        TOPIC_CARD_THEMES["player-market"]["green_mid"],
+        "#315C50",
     ):
-        assert token not in html
+        assert token.lower() in html.lower()
+
+    for archival_token in (
+        "#f1eadb",
+        "#e5dac5",
+        "#2d2923",
+        "#c94f3d",
+        "#6d5bd0",
+        "#d43d74",
+        "#e84a3c",
+    ):
+        assert archival_token not in html.lower()
+
+
+def test_each_content_topic_gets_a_distinct_complete_card_theme():
+    topic_ids = [
+        "gameplay-mechanics",
+        "world-level",
+        "narrative-culture",
+        "visual-experience",
+        "player-market",
+        "production-tech",
+    ]
+    model = build_report_model(
+        run_id="run-topic-themes",
+        items=[_item(topic_id, 9, profile=topic_id) for topic_id in topic_ids],
+        meta={"raw_count": len(topic_ids)},
+    )
+
+    cards = build_card_html(model, max_cards=14)
+    item_cards = cards[2::2]
+
+    assert len({theme["paper"] for theme in TOPIC_CARD_THEMES.values()}) == 6
+    assert len(item_cards) == 6
+    for card, item in zip(item_cards, model["items"], strict=True):
+        theme = TOPIC_CARD_THEMES[item["section_id"]]
+        assert f'--paper: {theme["paper"]}' in card["html"]
+        assert f'--ink: {theme["ink"]}' in card["html"]
+        assert f'--question-surface: {theme["question_surface"]}' in card["html"]
 
 
 def test_card_ignores_legacy_composition_image_layer():
@@ -456,7 +734,7 @@ def test_card_uses_hero_only_once_without_a_background_copy():
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
     assert 'class="composition-backdrop is-hero-fallback"' not in card
-    assert card.count("data:image/png;base64,HERO-ART") == 2
+    assert card.count("data:image/png;base64,HERO-ART") == 1
     assert "blur(24px)" not in card
 
 
@@ -522,9 +800,10 @@ def test_source_art_does_not_replace_the_generated_concept_hero():
     assert 'class="editorial-hero-copy"' in card
     assert ".editorial-hero { position: absolute; left: 0; right: 0; top: 72px; height: 380px" in card
     assert "background: transparent" in card
-    assert "width: 70%; height: 100%; display: block; object-fit: cover" in card
-    assert "object-position: 58% center" in card
-    assert "transparent 64%" in card
+    assert "inset: 0; width: 100%; height: 100%; display: block; object-fit: cover" in card
+    assert "object-position: 50% center" in card
+    assert "color-mix(in srgb, var(--paper) 84%, transparent) 0%" in card
+    assert "color-mix(in srgb, var(--paper) 12%, transparent) 100%" in card
 
 
 def test_generated_concept_art_is_the_only_item_hero_image():
@@ -539,7 +818,7 @@ def test_generated_concept_art_is_the_only_item_hero_image():
 
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
-    assert card.count("data:image/png;base64,CONCEPT") == 2
+    assert card.count("data:image/png;base64,CONCEPT") == 1
     assert "https://example.com/source.jpg" not in card
     assert 'class="editorial-hero-media"' in card
     assert 'class="editorial-hero-media no-image"' not in card
@@ -619,7 +898,7 @@ def test_item_card_uses_topic_color_only_for_category_identity():
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
     assert f"border: 1px solid {REPORT_THEME['map_blue']}" in card
-    assert f"background: {REPORT_THEME['map_blue']}; color: var(--ink)" in card
+    assert f"background: {REPORT_THEME['map_blue']}; color: var(--paper)" in card
     assert f"--accent: {REPORT_THEME['map_blue']}" in card
     assert ".item-page .brand strong { color: var(--brand);" in card
 
@@ -633,7 +912,10 @@ def test_item_card_structure_labels_follow_the_topic_color():
 
     card = "".join(card["html"] for card in build_card_html(model, max_cards=4)[2:4])
 
-    assert f".event-index b {{ color: {REPORT_THEME['brand']};" in card
+    assert (
+        f".event-index b {{ color: {REPORT_THEME['brand']}; "
+        "font-size: 30px; line-height: 1; }"
+    ) in card
     assert f".section-index strong {{ color: {REPORT_THEME['brand']};" in card
     assert f"background: {REPORT_THEME['brand']};" in card
     assert "--event-accent:" not in card

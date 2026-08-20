@@ -15,6 +15,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
+import markdown as markdown_lib
 from bs4 import BeautifulSoup
 
 from .image_generation import (
@@ -22,20 +23,22 @@ from .image_generation import (
     generate_cover_image,
 )
 
-
 REPORT_THEME = {
-    "paper": "#F1EADB",
-    "paper_soft": "#E5DAC5",
-    "ink": "#2D2923",
-    "muted": "#6F6659",
-    "line": "#B8AA92",
-    "brand": "#C94F3D",
-    "cover": "#D6B84A",
-    "map_blue": "#55788A",
-    "terracotta": "#A85F48",
-    "moss": "#78806B",
-    "ink_purple": "#75677A",
-    "brass": "#A77A3B",
+    "green": "#16372F",
+    "paper": "#061812",
+    "paper_soft": "#0B2119",
+    "panel": "#0A1D17",
+    "green_mid": "#264B40",
+    "ink": "#EEEADF",
+    "muted": "#A7B5AC",
+    "line": "#3A5148",
+    "brand": "#E46B5B",
+    "cover": "#D6BC63",
+    "map_blue": "#78A3B5",
+    "terracotta": "#C77C5D",
+    "moss": "#9AAF75",
+    "ink_purple": "#67AAA1",
+    "brass": "#C69A50",
 }
 CONTENT_TOPIC_DEFINITIONS = (
     ("gameplay-mechanics", "玩法与机制", REPORT_THEME["brand"]),
@@ -45,6 +48,80 @@ CONTENT_TOPIC_DEFINITIONS = (
     ("player-market", "玩家行为与市场", REPORT_THEME["moss"]),
     ("production-tech", "技术与制作方法", REPORT_THEME["brass"]),
 )
+TOPIC_CARD_THEMES = {
+    "gameplay-mechanics": {
+        "green": "#16372F",
+        "paper": "#061812",
+        "paper_soft": "#0B2119",
+        "panel": "#0A1D17",
+        "green_mid": "#264B40",
+        "ink": "#EEEADF",
+        "muted": "#A7B5AC",
+        "line": "#3A5148",
+        "question_surface": "#D9D4C8",
+        "question_ink": "#17342C",
+    },
+    "world-level": {
+        "green": "#172832",
+        "paper": "#091820",
+        "paper_soft": "#10242D",
+        "panel": "#0D2028",
+        "green_mid": "#29434F",
+        "ink": "#EEF0EA",
+        "muted": "#A8B4B8",
+        "line": "#3B5059",
+        "question_surface": "#D8DEE0",
+        "question_ink": "#172832",
+    },
+    "narrative-culture": {
+        "green": "#3A2220",
+        "paper": "#211311",
+        "paper_soft": "#2B1916",
+        "panel": "#271714",
+        "green_mid": "#53342E",
+        "ink": "#F1E9DF",
+        "muted": "#BBA9A0",
+        "line": "#5A4139",
+        "question_surface": "#E0D3C8",
+        "question_ink": "#3A2220",
+    },
+    "visual-experience": {
+        "green": "#123436",
+        "paper": "#071D1F",
+        "paper_soft": "#0D292B",
+        "panel": "#0A2426",
+        "green_mid": "#285052",
+        "ink": "#ECF0E9",
+        "muted": "#A4B8B5",
+        "line": "#39585A",
+        "question_surface": "#D4DFDB",
+        "question_ink": "#123436",
+    },
+    "player-market": {
+        "green": "#2E3420",
+        "paper": "#171B0F",
+        "paper_soft": "#202616",
+        "panel": "#1D2213",
+        "green_mid": "#414B2D",
+        "ink": "#F0EDDF",
+        "muted": "#B2B6A0",
+        "line": "#4A5138",
+        "question_surface": "#DADCCB",
+        "question_ink": "#2E3420",
+    },
+    "production-tech": {
+        "green": "#353029",
+        "paper": "#1C1915",
+        "paper_soft": "#26221C",
+        "panel": "#221F1A",
+        "green_mid": "#494138",
+        "ink": "#F1ECE2",
+        "muted": "#B8ADA0",
+        "line": "#51493F",
+        "question_surface": "#DED7CA",
+        "question_ink": "#353029",
+    },
+}
 PRODUCT_NAME = "游戏创意雷达"
 PRODUCT_COLOR = REPORT_THEME["brand"]
 COVER_ACCENT = REPORT_THEME["cover"]
@@ -77,14 +154,88 @@ def _embedded_font_faces() -> str:
     )
 
 
+_INTERNAL_SOURCE_ID_RE = re.compile(
+    r"(?<![\w-])(?:tool|research)-(?:[a-z0-9_]+-)*\d+(?:-\d+)*(?![\w-])",
+    re.IGNORECASE,
+)
+_EMPTY_SOURCE_REF_GROUP_RE = re.compile(
+    r"[\[【(（]\s*(?:[,，、;；]\s*)*[\]】)）]"
+)
+_MARKDOWN_ESCAPE_RE = re.compile(r"([\\`*_\[\]<>])")
+
+
+def _copy_source(value: Any) -> str:
+    if not value:
+        return ""
+    text = BeautifulSoup(str(value), "html.parser").get_text("\n\n", strip=True)
+    text = _INTERNAL_SOURCE_ID_RE.sub("", text)
+    text = _EMPTY_SOURCE_REF_GROUP_RE.sub("", text).replace("\r\n", "\n")
+    text = re.sub(r"[^\S\n]+", " ", text)
+    text = re.sub(r" +([，。！？；：,.!?;:])", r"\1", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _safe_copy_soup(value: Any) -> BeautifulSoup:
+    source = html.escape(_copy_source(value))
+    soup = BeautifulSoup(markdown_lib.markdown(source), "html.parser")
+    for tag in list(soup.find_all(True)):
+        if tag.name in {"p", "strong"}:
+            tag.attrs.clear()
+        else:
+            tag.unwrap()
+    normalized = BeautifulSoup("", "html.parser")
+    paragraph = None
+    for child in list(soup.contents):
+        if getattr(child, "name", None) == "p":
+            normalized.append(child.extract())
+            paragraph = None
+            continue
+        if not str(child).strip():
+            child.extract()
+            continue
+        if paragraph is None:
+            paragraph = normalized.new_tag("p")
+            normalized.append(paragraph)
+        paragraph.append(child.extract())
+    soup = normalized
+    for paragraph in list(soup.find_all("p")):
+        if not paragraph.get_text(strip=True):
+            paragraph.decompose()
+    return soup
+
+
+def _escape_markdown_copy(value: str) -> str:
+    return _MARKDOWN_ESCAPE_RE.sub(r"\\\1", value)
+
+
+def _node_markdown(node: Any) -> str:
+    if getattr(node, "name", None) is None:
+        return _escape_markdown_copy(str(node))
+    content = "".join(_node_markdown(child) for child in node.children)
+    return f"**{content}**" if node.name == "strong" else content
+
+
+def _safe_copy_markdown(value: Any) -> str:
+    soup = _safe_copy_soup(value)
+    return "\n\n".join(
+        "".join(_node_markdown(child) for child in paragraph.children).strip()
+        for paragraph in soup.find_all("p")
+        if paragraph.get_text(strip=True)
+    )
+
+
+def _rich_copy_html(value: Any) -> str:
+    return "".join(str(node) for node in _safe_copy_soup(value).contents)
+
+
 def _plain_text(value: Any) -> str:
     if not value:
         return ""
-    text = BeautifulSoup(str(value), "html.parser").get_text(" ", strip=True)
-    text = re.sub(
-        r"(?:\[(?:tool|research)-[^\]\s]+\]|【(?:tool|research)-[^】\s]+】)",
-        "",
-        text,
+    soup = _safe_copy_soup(value)
+    text = " ".join(
+        paragraph.get_text("", strip=True)
+        for paragraph in soup.find_all("p")
+        if paragraph.get_text(strip=True)
     )
     return re.sub(r"\s+", " ", text).replace("`", "").strip()
 
@@ -170,12 +321,23 @@ def _normalize_item(
             or analysis.get("summary")
             or item.get("content")
         ),
+        "what_happened_markdown": _safe_copy_markdown(
+            (what_happened or {}).get("content")
+            or analysis.get("summary")
+            or item.get("content")
+        ),
         "fresh_relationship": _plain_text(
+            (fresh_relationship or {}).get("content") or ""
+        ),
+        "fresh_relationship_markdown": _safe_copy_markdown(
             (fresh_relationship or {}).get("content") or ""
         ),
         "event_heading": _plain_text((what_happened or {}).get("title") or ""),
         "insight_heading": _plain_text((fresh_relationship or {}).get("title") or ""),
         "systems_question": _plain_text((systems_question or {}).get("content") or ""),
+        "systems_question_markdown": _safe_copy_markdown(
+            (systems_question or {}).get("content") or ""
+        ),
         "systems_heading": _plain_text((systems_question or {}).get("title") or ""),
         "mechanism_steps": _mechanism_steps(
             (mechanism_chain or {}).get("content") or ""
@@ -349,7 +511,13 @@ def build_markdown(model: dict[str, Any]) -> str:
             item_lines = [
                 f"### [{item['title']}]({item['url']}) · 灵感值 {item['score']:.1f}/10",
                 "",
-                f"**发生了什么：** {item['what_happened']}",
+                (
+                    "**发生了什么：** "
+                    + (
+                        item.get("what_happened_markdown")
+                        or item["what_happened"]
+                    )
+                ),
                 "",
             ]
             if item["mechanism_steps"]:
@@ -358,11 +526,25 @@ def build_markdown(model: dict[str, Any]) -> str:
                 )
             if item["fresh_relationship"]:
                 item_lines.extend(
-                    [f"**真正好玩的地方：** {item['fresh_relationship']}", ""]
+                    [
+                        "**真正好玩的地方：** "
+                        + (
+                            item.get("fresh_relationship_markdown")
+                            or item["fresh_relationship"]
+                        ),
+                        "",
+                    ]
                 )
             if item["systems_question"]:
                 item_lines.extend(
-                    [f"**再往下问一层：** {item['systems_question']}", ""]
+                    [
+                        "**再往下问一层：** "
+                        + (
+                            item.get("systems_question_markdown")
+                            or item["systems_question"]
+                        ),
+                        "",
+                    ]
                 )
             if item["game_question"]:
                 item_lines.extend(
@@ -404,15 +586,21 @@ def build_markdown(model: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _base_css(accent: str) -> str:
+def _base_css(accent: str, palette: dict[str, str] | None = None) -> str:
+    page_theme = {**REPORT_THEME, **(palette or {})}
     return f"""
     {_embedded_font_faces()}
     :root {{
-      --paper: {REPORT_THEME["paper"]};
-      --paper-soft: {REPORT_THEME["paper_soft"]};
-      --ink: {REPORT_THEME["ink"]};
-      --muted: {REPORT_THEME["muted"]};
-      --line: {REPORT_THEME["line"]};
+      --green: {page_theme["green"]};
+      --paper: {page_theme["paper"]};
+      --paper-soft: {page_theme["paper_soft"]};
+      --panel: {page_theme["panel"]};
+      --green-mid: {page_theme["green_mid"]};
+      --ink: {page_theme["ink"]};
+      --muted: {page_theme["muted"]};
+      --line: {page_theme["line"]};
+      --question-surface: {page_theme.get("question_surface", "#D9D4C8")};
+      --question-ink: {page_theme.get("question_ink", page_theme["green"])};
       --brand: {REPORT_THEME["brand"]};
       --cover: {REPORT_THEME["cover"]};
       --map-blue: {REPORT_THEME["map_blue"]};
@@ -429,28 +617,28 @@ def _base_css(accent: str) -> str:
     html, body {{ margin: 0; width: 1080px; height: 1440px; overflow: hidden; }}
     body {{
       font-family: var(--font-body); font-weight: 700;
-      color: var(--ink); background: var(--paper); letter-spacing: 0;
+      color: var(--ink); background: var(--green); letter-spacing: 0;
       -webkit-font-smoothing: antialiased;
     }}
-    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: var(--paper); }}
+    .page {{ position: relative; width: 1080px; height: 1440px; overflow: hidden; background: var(--green); }}
     .page::before {{ content: ""; position: absolute; z-index: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }}
     .item-page::before {{ display: none; }}
     .cover-page::before {{ display: none; }}
-    .directory-page::before {{ top: 500px; background: var(--paper-soft); border-top: 1px solid var(--line); }}
+    .directory-page::before {{ top: 500px; background: var(--green); border-top: 1px solid #315C50; }}
     .content {{ position: relative; z-index: 1; height: 100%; }}
-    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--paper) 92%, transparent); border-bottom: 3px solid {accent}; color: var(--ink); font: 700 17px var(--font-mono); backdrop-filter: blur(14px); }}
+    .top {{ position: absolute; z-index: 5; left: 0; right: 0; top: 0; min-height: 92px; padding: 0 58px; display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--green) 86%, transparent); border-bottom: 3px solid {accent}; color: var(--ink); font: 700 17px var(--font-mono); backdrop-filter: blur(14px); }}
     .brand {{ display: flex; align-items: baseline; gap: 10px; }}
     .brand strong {{ color: {accent}; font-size: 20px; }}
     .brand b {{ color: var(--muted); }}
     .meta {{ display: flex; align-items: center; gap: 18px; font-variant-numeric: tabular-nums; }}
-    .score {{ padding: 8px 11px; background: {accent}; color: var(--ink); font-size: 18px; }}
+    .score {{ padding: 8px 11px; background: {accent}; color: var(--paper); font-size: 18px; }}
     h1, h2, h3, p {{ margin: 0; }}
-    .page-backdrop {{ position: absolute; z-index: 0; inset: 0; overflow: hidden; background: var(--paper); }}
+    .page-backdrop {{ position: absolute; z-index: 0; inset: 0; overflow: hidden; background: var(--green); }}
     .page-backdrop img {{ width: 100%; height: 100%; display: block; object-fit: cover; filter: blur(30px) saturate(.58) contrast(.94); transform: scale(1.08); opacity: .18; }}
-    .page-backdrop::after {{ content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 78%, transparent); }}
-    .hero {{ position: absolute; inset: 92px 0 auto; height: 558px; margin: 0; overflow: hidden; background: #d8cdb8; }}
+    .page-backdrop::after {{ content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--green) 78%, transparent); }}
+    .hero {{ position: absolute; inset: 92px 0 auto; height: 558px; margin: 0; overflow: hidden; background: #315C50; }}
     .hero img {{ width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.78) contrast(1.08); }}
-    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--paper) 4%, transparent) 26%, color-mix(in srgb, var(--paper) 96%, transparent) 100%); }}
+    .hero::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, color-mix(in srgb, var(--green) 6%, transparent) 26%, color-mix(in srgb, var(--green) 93%, transparent) 100%); }}
     .hero.no-image {{ height: 430px; border-bottom: 1px solid var(--line); }}
     .hero.no-image::after {{ display: none; }}
     .hero-title {{ position: absolute; z-index: 2; left: 58px; right: 58px; top: 404px; height: 216px; overflow: hidden; }}
@@ -458,27 +646,27 @@ def _base_css(accent: str) -> str:
     .hero.with-mechanism {{ height: 418px; }}
     .hero-title.with-mechanism {{ top: 286px; }}
     .body.with-mechanism {{ top: 510px; }}
-    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: var(--ink); font: 800 19px var(--font-mono); }}
-    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 400 62px/1.2 var(--font-display); color: var(--ink); text-shadow: 0 2px 18px color-mix(in srgb, var(--paper) 72%, transparent); overflow: hidden; overflow-wrap: anywhere; }}
-    .body {{ position: absolute; left: 58px; right: 58px; top: 670px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; border-top: 1px solid rgba(74, 65, 53, .18); box-shadow: inset 0 28px 46px rgba(67, 52, 34, .08); }}
+    .eyebrow {{ display: inline-flex; padding: 9px 14px 10px; background: {accent}; color: var(--paper); font: 800 19px var(--font-mono); }}
+    .title {{ margin-top: 16px; max-width: 930px; max-height: 174px; font: 400 62px/1.2 var(--font-display); color: var(--ink); text-shadow: 0 3px 22px rgba(0, 0, 0, .48); overflow: hidden; overflow-wrap: anywhere; }}
+    .body {{ position: absolute; left: 58px; right: 58px; top: 670px; bottom: 44px; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; border-top: 1px solid rgba(220, 232, 223, .16); box-shadow: inset 0 28px 46px rgba(8, 24, 18, .16); }}
     .body.no-image {{ top: 438px; }}
     .copy {{ --copy-scale: 1; flex: 1 1 auto; min-height: 0; overflow: hidden; }}
-    .fact {{ margin-top: 14px; padding: calc(22px * var(--copy-scale)) 24px calc(24px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
+    .fact {{ margin-top: 14px; padding: calc(22px * var(--copy-scale)) 24px calc(24px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(220, 232, 223, .12); background: rgba(9, 35, 27, .74); box-shadow: 0 12px 28px rgba(8, 24, 18, .16); }}
     .label {{ display: block; margin-bottom: calc(11px * var(--copy-scale)); color: var(--muted); font: 700 15px/1.2 var(--font-ui); letter-spacing: .04em; }}
     .fact p {{ margin: 0; color: var(--ink); font-size: calc(23px * var(--copy-scale)); line-height: 1.58; }}
-    .relation {{ margin-top: 12px; padding: calc(22px * var(--copy-scale)) 24px calc(26px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(74, 65, 53, .16); position: relative; background: rgba(232, 223, 204, .86); box-shadow: 0 12px 28px rgba(67, 52, 34, .1); }}
+    .relation {{ margin-top: 12px; padding: calc(22px * var(--copy-scale)) 24px calc(26px * var(--copy-scale)); border-left: 5px solid {accent}; border-bottom: 1px solid rgba(220, 232, 223, .12); position: relative; background: rgba(9, 35, 27, .74); box-shadow: 0 12px 28px rgba(8, 24, 18, .16); }}
     .relation .label {{ position: static; }}
     .mechanism-flow {{ display: flex; align-items: stretch; gap: 9px; margin: 0 0 calc(17px * var(--copy-scale)); }}
-    .mechanism-node {{ flex: 1 1 0; min-width: 0; min-height: calc(62px * var(--copy-scale)); padding: calc(10px * var(--copy-scale)) 10px; display: flex; align-items: center; justify-content: center; border-top: 3px solid {accent}; background: var(--paper-soft); color: var(--ink); text-align: center; font-size: calc(17px * var(--copy-scale)); font-weight: 700; line-height: 1.32; overflow-wrap: anywhere; }}
-    .mechanism-node:last-of-type {{ background: {accent}; color: var(--ink); }}
+    .mechanism-node {{ flex: 1 1 0; min-width: 0; min-height: calc(62px * var(--copy-scale)); padding: calc(10px * var(--copy-scale)) 10px; display: flex; align-items: center; justify-content: center; border-top: 3px solid {accent}; background: var(--green-mid); color: var(--ink); text-align: center; font-size: calc(17px * var(--copy-scale)); font-weight: 700; line-height: 1.32; overflow-wrap: anywhere; }}
+    .mechanism-node:last-of-type {{ background: {accent}; color: var(--paper); }}
     .mechanism-arrow {{ flex: 0 0 18px; display: flex; align-items: center; justify-content: center; color: {accent}; font-size: calc(24px * var(--copy-scale)); font-weight: 800; }}
     .mechanism-visual {{ height: calc(178px * var(--copy-scale)); margin: 0 0 calc(15px * var(--copy-scale)); overflow: hidden; background: #e8e0cf; border-top: 3px solid {accent}; box-shadow: 0 10px 24px rgba(67, 52, 34, .12); }}
     .mechanism-visual img {{ width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; filter: saturate(.88) contrast(1.04); }}
     .mechanism-caption {{ margin: calc(-5px * var(--copy-scale)) 0 calc(14px * var(--copy-scale)); color: var(--muted); font-size: calc(15px * var(--copy-scale)); font-weight: 600; line-height: 1.35; }}
     .relation blockquote {{ margin: 0; padding: 0; border: 0; font-family: var(--font-body); font-size: calc(29px * var(--copy-scale)); font-weight: 700; line-height: 1.44; color: var(--ink); }}
-    .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: var(--paper-soft); box-shadow: 0 10px 24px rgba(67, 52, 34, .12), inset 0 1px rgba(250, 246, 236, .7); }}
+    .systems-question {{ margin-top: calc(15px * var(--copy-scale)); padding: calc(17px * var(--copy-scale)) 22px calc(19px * var(--copy-scale)); border-top: 4px solid {accent}; background: var(--question-surface); box-shadow: 0 10px 24px color-mix(in srgb, var(--paper) 55%, transparent), inset 0 1px rgba(255, 255, 255, .5); }}
     .systems-question .label {{ margin-bottom: calc(9px * var(--copy-scale)); color: {accent}; font-size: calc(14px * var(--copy-scale)); }}
-    .systems-question p {{ color: var(--ink); font: 700 calc(20px * var(--copy-scale))/1.5 var(--font-body); }}
+    .systems-question p {{ color: var(--question-ink); font: 700 calc(20px * var(--copy-scale))/1.5 var(--font-body); }}
     .copy.has-mechanism .fact {{ padding-top: calc(15px * var(--copy-scale)); padding-bottom: calc(17px * var(--copy-scale)); }}
     .copy.has-mechanism .relation {{ padding-top: calc(17px * var(--copy-scale)); padding-bottom: calc(19px * var(--copy-scale)); }}
     .item-page {{ background: var(--paper); color: var(--ink); }}
@@ -495,18 +683,22 @@ def _base_css(accent: str) -> str:
     .editorial-deck {{ position: absolute; left: 8px; right: 36px; bottom: 20px; min-height: 58px; padding-top: 15px; border-top: 1px solid color-mix(in srgb, var(--brand) 62%, transparent); color: var(--muted); font-size: 17px; line-height: 1.48; white-space: normal; overflow: visible; }}
     .editorial-deck::before {{ content: ""; position: absolute; left: 0; top: -2px; width: 42px; height: 3px; background: {accent}; }}
     .editorial-hero-media {{ position: absolute; z-index: 1; inset: 0; margin: 0; overflow: hidden; background: var(--paper); }}
-    .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; right: 0; top: 0; width: 70%; height: 100%; display: block; object-fit: cover; object-position: 58% center; filter: saturate(.88) contrast(1.04) brightness(.9); }}
-    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, var(--paper) 0%, var(--paper) 36%, color-mix(in srgb, var(--paper) 98%, transparent) 43%, color-mix(in srgb, var(--paper) 72%, transparent) 50%, color-mix(in srgb, var(--paper) 24%, transparent) 57%, transparent 64%); }}
-    .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, #d4cbb6 0, #e4dbc7 32%, var(--paper) 76%); }}
+    .editorial-hero-media .media-fit {{ position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% center; filter: saturate(.9) contrast(1.04) brightness(.92); }}
+    .editorial-hero-media::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 84%, transparent) 0%, color-mix(in srgb, var(--paper) 72%, transparent) 32%, color-mix(in srgb, var(--paper) 38%, transparent) 56%, color-mix(in srgb, var(--paper) 12%, transparent) 100%); }}
+    .editorial-hero-media.no-image {{ background: radial-gradient(circle at 70% 48%, var(--green-mid) 0, var(--paper-soft) 34%, var(--paper) 76%); }}
     .event-strip {{ --copy-scale: 1; position: absolute; left: 0; right: 0; top: 452px; height: 210px; display: grid; grid-template-columns: 118px 310px minmax(0, 1fr); align-items: center; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
     .event-index {{ align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
-    .event-index b {{ color: {accent}; font-size: 17px; line-height: 1; }}
+    .event-index b {{ color: {accent}; font-size: 30px; line-height: 1; }}
     .agent-lead {{ align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 28px 0 24px; border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }}
     .agent-lead h2 {{ color: var(--ink); font: 700 calc(25px * var(--copy-scale))/1.3 var(--font-body); }}
     .agent-body {{ margin: 0; color: var(--ink); font: 700 calc(17px * var(--copy-scale))/1.58 var(--font-body); }}
+    .rich-copy {{ min-width: 0; width: 100%; }}
+    .rich-copy p {{ margin: 0; }}
+    .rich-copy p + p {{ margin-top: calc(9px * var(--copy-scale)); }}
+    .rich-copy strong {{ color: {accent}; font-size: inherit; font-weight: 900; }}
     .event-body {{ --copy-scale: 1; height: 178px; padding: 0 30px; display: flex; align-items: center; overflow: hidden; }}
-    .mechanism-board {{ position: absolute; left: 0; right: 0; top: 662px; height: 352px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
-    .mechanism-board:has(.mechanism-strip) {{ background: var(--paper-soft); }}
+    .mechanism-board {{ position: absolute; left: 0; right: 0; top: 662px; height: 352px; display: grid; grid-template-columns: 108px minmax(0, 1fr); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--panel); overflow: hidden; }}
+    .mechanism-board:has(.mechanism-strip) {{ background: var(--panel); }}
     .section-index {{ display: flex; flex-direction: column; align-items: flex-start; padding: 34px 20px 0 26px; border-right: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }}
     .section-index strong {{ color: {accent}; font: 800 48px/1 var(--font-mono); }}
     .section-index i {{ width: 34px; height: 2px; margin: 14px 0; background: {accent}; }}
@@ -516,7 +708,7 @@ def _base_css(accent: str) -> str:
     .board-title {{ color: {accent}; font-size: 21px; font-weight: 900; }}
     .mechanism-strip {{ position: absolute; inset: 2px 0; margin: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--paper-soft); }}
     .mechanism-strip .media-fit {{ position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 50%; transform: scale(1.045); filter: saturate(.92) contrast(1.06) brightness(.92); }}
-    .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, rgba(72, 57, 35, .1), transparent 28%, transparent 82%, rgba(72, 57, 35, .12)); pointer-events: none; }}
+    .mechanism-strip::after {{ content: ""; position: absolute; z-index: 2; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--paper) 10%, transparent), transparent 28%, transparent 82%, color-mix(in srgb, var(--paper) 18%, transparent)); pointer-events: none; }}
     .mechanism-step-labels {{ display: none; }}
     .mechanism-fallback {{ margin-top: 28px; min-height: 190px; display: flex; align-items: center; justify-content: center; padding: 30px; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); color: var(--ink); background: var(--paper-soft); font: 700 25px/1.4 var(--font-body); text-align: center; }}
     .bottom-board {{ position: absolute; left: 0; right: 0; top: 1014px; bottom: 24px; display: grid; grid-template-columns: 48% 52%; border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); background: var(--paper-soft); overflow: hidden; }}
@@ -534,45 +726,46 @@ def _base_css(accent: str) -> str:
     .footer {{ position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--muted); font: 500 14px var(--font-mono); }}
     .body > .footer {{ position: static; flex: 0 0 24px; padding-top: 8px; }}
     .event-card-layout .editorial-hero {{ height: 390px; }}
-    .event-card-layout .event-strip {{ top: 452px; height: 390px; align-items: stretch; }}
-    .event-card-layout .event-body {{ height: 100%; padding: 34px 42px; align-items: flex-start; font-size: calc(25px * var(--copy-scale)); line-height: 1.55; }}
-    .event-card-layout .agent-lead {{ padding: 40px 34px; }}
-    .event-card-layout .agent-lead h2 {{ font-size: calc(32px * var(--copy-scale)); line-height: 1.35; }}
-    .event-card-layout .mechanism-board {{ top: 842px; bottom: 24px; height: auto; }}
+    .event-card-layout .event-strip {{ top: 452px; height: 482px; align-items: stretch; }}
+    .event-card-layout .event-body {{ height: 100%; padding: 34px 42px; align-items: center; font-size: calc(25px * var(--copy-scale)); line-height: 1.55; }}
+    .event-card-layout .agent-lead {{ align-items: center; padding: 40px 18px; text-align: center; }}
+    .event-card-layout .agent-lead h2 {{ width: 100%; font-size: calc(32px * var(--copy-scale)); line-height: 1.35; text-align: center; text-wrap: balance; }}
+    .event-card-layout .mechanism-board {{ top: 934px; bottom: 24px; height: auto; grid-template-columns: 120px minmax(0, 1fr); }}
     .event-card-layout .mechanism-strip {{ inset: 2px 0; }}
-    .insight-card-layout .editorial-hero {{ height: 250px; }}
-    .insight-card-layout .editorial-hero-media {{ display: none; }}
-    .insight-card-layout .editorial-hero-copy {{ width: 100%; padding: 42px 48px 24px; }}
-    .insight-card-layout .editorial-title {{ height: 130px; width: 900px; font-size: 52px; }}
-    .insight-card-layout .bottom-board {{ top: 322px; bottom: 24px; grid-template-columns: 1fr; grid-template-rows: 43% 57%; }}
+    .insight-card-layout .bottom-board {{ top: 72px; bottom: 24px; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }}
+    .insight-card-layout .design-panel, .insight-card-layout .question-panel {{ grid-template-columns: 120px minmax(0, 1fr); }}
+    .event-card-layout .section-index, .insight-card-layout .section-index {{ align-items: center; padding: 38px 12px 0; text-align: center; background: color-mix(in srgb, {accent} 7%, transparent); }}
+    .event-card-layout .section-index strong, .insight-card-layout .section-index strong {{ font-size: 30px; }}
+    .event-card-layout .section-index i, .insight-card-layout .section-index i {{ width: 44px; height: 3px; margin: 16px 0 18px; }}
+    .event-card-layout .section-index b, .insight-card-layout .section-index b {{ margin: 0; color: {accent}; font-size: 30px; font-weight: 900; line-height: 1.05; letter-spacing: 0; writing-mode: vertical-rl; text-orientation: upright; }}
     .insight-card-layout .question-panel {{ border-left: 0; border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }}
     .insight-card-layout .panel-heading {{ font-size: calc(32px * var(--copy-scale)); line-height: 1.3; }}
     .insight-card-layout .panel-body {{ font-size: calc(28px * var(--copy-scale)); line-height: 1.52; }}
     .insight-card-layout .question-content .systems-question p {{ font-size: calc(28px * var(--copy-scale)); line-height: 1.52; }}
     .cover-body, .overview-body, .method-body {{ position: absolute; left: 58px; right: 58px; top: 190px; bottom: 44px; }}
-    .cover-page {{ background: var(--paper); color: var(--ink); }}
-    .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: var(--ink); }}
+    .cover-page {{ background: #F0EBDC; color: #0D1814; }}
+    .cover-page .top {{ min-height: 94px; padding: 0 54px; background: transparent; border-bottom: 0; color: var(--green); }}
     .cover-page .brand {{ gap: 18px; }}
     .cover-page .brand strong {{ color: var(--brand); font-size: 25px; }}
     .cover-page .brand b {{ display: none; }}
-    .cover-page .brand span {{ color: var(--muted); font: 800 17px var(--font-ui); }}
-    .cover-page .meta {{ color: var(--ink); font-size: 16px; }}
-    .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: var(--paper-soft); }}
+    .cover-page .brand span {{ color: #315C50; font: 800 17px var(--font-ui); }}
+    .cover-page .meta {{ color: #0D1814; font-size: 16px; }}
+    .cover-art {{ position: absolute; z-index: 0; left: 0; right: 0; top: 338px; height: 866px; margin: 0; overflow: hidden; background: #D7DDD2; }}
     .cover-art img {{ width: 100%; height: 100%; object-fit: cover; object-position: 50% 52%; display: block; filter: saturate(.84) contrast(1.04); }}
-    .cover-art::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, var(--paper) 0%, color-mix(in srgb, var(--paper) 94%, transparent) 6%, color-mix(in srgb, var(--paper) 54%, transparent) 17%, color-mix(in srgb, var(--paper) 8%, transparent) 31%, color-mix(in srgb, var(--ink) 2%, transparent) 76%, color-mix(in srgb, var(--ink) 26%, transparent) 100%); }}
-    .cover-art.no-image {{ background: linear-gradient(160deg, var(--paper) 0 34%, var(--paper-soft) 68%, #c9bda6 100%); }}
+    .cover-art::after {{ content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #F0EBDC 0%, rgba(240, 235, 220, .94) 6%, rgba(240, 235, 220, .54) 17%, rgba(240, 235, 220, .08) 31%, rgba(23, 56, 47, .02) 76%, rgba(23, 56, 47, .38) 100%); }}
+    .cover-art.no-image {{ background: linear-gradient(160deg, #F0EBDC 0 34%, #D7DDD2 68%, var(--green) 100%); }}
     .cover-art.no-image::after {{ display: none; }}
     .cover-poster-body {{ position: absolute; z-index: 2; inset: 0; }}
-    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: var(--ink); font: 400 86px/.96 var(--font-display); }}
+    .cover-headline {{ position: absolute; left: 54px; top: 144px; width: 590px; color: #0D1814; font: 400 86px/.96 var(--font-display); }}
     .cover-headline span {{ display: block; }}
     .cover-headline span + span {{ margin-top: 7px; }}
-    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: var(--ink); font: 800 14px var(--font-mono); writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
-    .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: var(--ink); border-top: 9px solid var(--ink); }}
+    .cover-issue {{ position: absolute; left: 653px; top: 126px; color: var(--green); font: 800 14px var(--font-mono); writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: .04em; }}
+    .cover-count-panel {{ position: absolute; right: 54px; top: 100px; width: 316px; height: 316px; padding: 38px 28px 24px; background: {accent}; color: #0D1814; border-top: 9px solid var(--green); }}
     .cover-count-panel strong {{ display: block; font: 900 166px/.72 var(--font-mono); font-variant-numeric: tabular-nums; }}
     .cover-count-panel span {{ display: block; margin-top: 33px; font: 700 27px/1.14 var(--font-body); }}
-    .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: var(--ink); background: var(--paper-soft); border-top: 8px solid var(--cover); }}
+    .cover-summary {{ position: absolute; left: 0; right: 0; top: 1196px; height: 244px; padding: 36px 54px 22px; color: var(--ink); background: var(--green); border-top: 8px solid #C7B75F; }}
     .cover-summary p {{ max-width: 900px; font: 700 25px/1.48 var(--font-body); }}
-    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font: 800 15px var(--font-mono); }}
+    .cover-taxonomy {{ display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 28px; padding-top: 12px; border-top: 1px solid #8DA096; color: #E0E3DC; font: 800 15px var(--font-mono); }}
     .cover-taxonomy span:nth-child(2) {{ text-align: center; }}
     .cover-taxonomy span:last-child {{ text-align: right; }}
     .directory-body {{ position: absolute; left: 58px; right: 58px; top: 150px; bottom: 44px; }}
@@ -622,10 +815,16 @@ def _base_css(accent: str) -> str:
     """
 
 
-def _html_page(body: str, *, accent: str, title: str) -> str:
+def _html_page(
+    body: str,
+    *,
+    accent: str,
+    title: str,
+    palette: dict[str, str] | None = None,
+) -> str:
     return (
         '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
-        f"<title>{html.escape(title)}</title><style>{_base_css(accent)}</style></head>"
+        f"<title>{html.escape(title)}</title><style>{_base_css(accent, palette)}</style></head>"
         f"<body>{body}{_fit_script()}</body></html>"
     )
 
@@ -634,15 +833,32 @@ def _fit_script() -> str:
     return """
     <script>
     (() => {
+      const contentOverflows = (element) => {
+        const bounds = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const bottom = bounds.bottom - (parseFloat(style.paddingBottom) || 0);
+        const right = bounds.right - (parseFloat(style.paddingRight) || 0);
+        const content = element.querySelectorAll(
+          '.panel-heading, .rich-copy p'
+        );
+        return Array.from(content).some((node) => {
+          const nodeBounds = node.getBoundingClientRect();
+          return nodeBounds.bottom > bottom + 1 || nodeBounds.right > right + 1;
+        });
+      };
+
       const overflows = (element) => (
         element.scrollHeight > element.clientHeight + 1 ||
-        element.scrollWidth > element.clientWidth + 1
+        element.scrollWidth > element.clientWidth + 1 ||
+        contentOverflows(element)
       );
 
       const clearClamp = (copy) => {
-        const body = copy.matches('.agent-body')
-          ? copy
-          : copy.querySelector('.panel-body:last-of-type');
+        const body = copy.querySelector('.rich-copy') || (
+          copy.matches('.agent-body')
+            ? copy
+            : copy.querySelector('.panel-body:last-of-type')
+        );
         if (!body) return;
         body.style.removeProperty('display');
         body.style.removeProperty('-webkit-box-orient');
@@ -651,9 +867,11 @@ def _fit_script() -> str:
       };
 
       const clampToWholeLines = (copy) => {
-        const body = copy.matches('.agent-body')
-          ? copy
-          : copy.querySelector('.panel-body:last-of-type');
+        const body = copy.querySelector('.rich-copy') || (
+          copy.matches('.agent-body')
+            ? copy
+            : copy.querySelector('.panel-body:last-of-type')
+        );
         if (!body) return false;
         const copyRect = copy.getBoundingClientRect();
         const bodyRect = body.getBoundingClientRect();
@@ -728,9 +946,45 @@ def _fit_script() -> str:
         title.style.fontSize = `${Math.max(minimum, best - 0.5)}px`;
       };
 
+      const fitEventHeading = (heading) => {
+        const minimum = 28;
+        heading.style.removeProperty('font-size');
+        heading.style.whiteSpace = 'nowrap';
+        const initial = parseFloat(getComputedStyle(heading).fontSize);
+        if (heading.scrollWidth <= heading.clientWidth + 1) {
+          heading.dataset.lines = 'single';
+          return;
+        }
+
+        heading.style.fontSize = `${minimum}px`;
+        if (heading.scrollWidth <= heading.clientWidth + 1) {
+          let low = minimum;
+          let high = initial;
+          let best = minimum;
+          for (let attempt = 0; attempt < 8; attempt += 1) {
+            const size = (low + high) / 2;
+            heading.style.fontSize = `${size}px`;
+            if (heading.scrollWidth > heading.clientWidth + 1) {
+              high = size;
+            } else {
+              best = size;
+              low = size;
+            }
+          }
+          heading.style.fontSize = `${Math.max(minimum, best - 0.25)}px`;
+          heading.dataset.lines = 'single';
+          return;
+        }
+
+        heading.style.removeProperty('font-size');
+        heading.style.whiteSpace = 'normal';
+        heading.dataset.lines = 'wrapped';
+      };
+
       const fitCopy = () => {
         document.querySelectorAll('[data-fit-copy]').forEach(fitScaledCopy);
         document.querySelectorAll('[data-fit-title]').forEach(fitTitle);
+        document.querySelectorAll('[data-fit-event-heading]').forEach(fitEventHeading);
       };
       fitCopy();
       requestAnimationFrame(fitCopy);
@@ -1000,6 +1254,7 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
     for item_index, item in enumerate(featured, start=1):
         event_card_index = 2 + (item_index - 1) * 2 + 1
         insight_card_index = event_card_index + 1
+        page_theme = TOPIC_CARD_THEMES.get(item["section_id"])
         title = html.escape(item["title"])
         event_heading_text = item.get("event_heading") or _truncate(
             item["what_happened"], 28
@@ -1009,9 +1264,19 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
             item.get("insight_heading")
             or _truncate(item["fresh_relationship"], 34)
         )
-        event_copy = html.escape(item.get("what_happened") or "")
-        insight_copy = html.escape(item.get("fresh_relationship") or "")
-        systems_question_copy = html.escape(item.get("systems_question") or "")
+        event_copy = _rich_copy_html(
+            item.get("what_happened_markdown") or item.get("what_happened") or ""
+        )
+        insight_copy = _rich_copy_html(
+            item.get("fresh_relationship_markdown")
+            or item.get("fresh_relationship")
+            or ""
+        )
+        systems_question_copy = _rich_copy_html(
+            item.get("systems_question_markdown")
+            or item.get("systems_question")
+            or ""
+        )
         systems_heading = html.escape(item.get("systems_heading") or "继续追问")
         if item.get("concept_image_url"):
             hero_url = html.escape(item["concept_image_url"], quote=True)
@@ -1035,7 +1300,8 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
             mechanism_visual = f'<div class="mechanism-fallback">{event_heading} → {insight_heading}</div>'
         systems_question_content = (
             f'<h2 class="panel-heading">{systems_heading}</h2>'
-            f'<p class="panel-body" data-agent-copy="systems">{systems_question_copy}</p>'
+            f'<div class="panel-body rich-copy" data-agent-copy="systems">'
+            f"{systems_question_copy}</div>"
             if systems_question_copy
             else ""
         )
@@ -1054,9 +1320,11 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
               <b>事件</b>
             </div>
             <div class="agent-lead">
-              <h2>{event_heading}</h2>
+              <h2 data-fit-event-heading>{event_heading}</h2>
             </div>
-            <p class="agent-body event-body" data-agent-copy="event" data-fit-copy>{event_copy}</p>
+            <div class="agent-body event-body" data-fit-copy>
+              <div class="rich-copy" data-agent-copy="event">{event_copy}</div>
+            </div>
           </section>
           <section class="mechanism-board">
             <div class="section-index"><strong>01</strong><i></i><b>事件过程</b></div>
@@ -1069,21 +1337,12 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
           </div>
         """
         insight_content = f"""
-          <section class="editorial-hero">
-            <div class="editorial-hero-copy">
-              <div class="editorial-tags">
-                <span class="editorial-tag">{html.escape(item["section"])}</span>
-              </div>
-              <h1 class="editorial-title" data-fit-title>{title}</h1>
-            </div>
-            {hero_media}
-          </section>
           <section class="bottom-board">
             <div class="design-panel" data-field-label="设计启示">
               <div class="section-index"><strong>02</strong><i></i><b>设计启示</b></div>
               <div class="design-content" data-fit-copy>
                 <h2 class="panel-heading">{insight_heading}</h2>
-                <p class="panel-body" data-agent-copy="insight">{insight_copy}</p>
+                <div class="panel-body rich-copy" data-agent-copy="insight">{insight_copy}</div>
               </div>
             </div>
             <div class="question-panel">
@@ -1114,6 +1373,7 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
                         ),
                         accent=item["color"],
                         title=item["title"],
+                        palette=page_theme,
                     ),
                 },
                 {
@@ -1129,6 +1389,7 @@ def build_card_html(model: dict[str, Any], max_cards: int = 12) -> list[dict[str
                         ),
                         accent=item["color"],
                         title=item["title"],
+                        palette=page_theme,
                     ),
                 },
             ]
@@ -1173,6 +1434,31 @@ async def generate_xiaohongshu_report(
     concept_images = card_visuals["concept_images"]
     mechanism_images = card_visuals["mechanism_images"]
     composition_images = card_visuals["composition_images"]
+    if cover_image.get("enabled") and not cover_image.get("image_url"):
+        raise RuntimeError(
+            "Cover image generation incomplete; refusing to render a fallback cover: "
+            + str(cover_image.get("error") or "no image returned")
+        )
+    missing_concept_images = [
+        str(item.get("title") or item.get("id") or "unknown")
+        for item in model["items"][:featured_count]
+        if not item.get("concept_image_url")
+    ]
+    if concept_images.get("enabled") and missing_concept_images:
+        raise RuntimeError(
+            "Concept image generation incomplete; refusing to render fallback cards: "
+            + ", ".join(missing_concept_images)
+        )
+    missing_mechanism_images = [
+        str(item.get("title") or item.get("id") or "unknown")
+        for item in model["items"][:featured_count]
+        if not item.get("mechanism_image_url")
+    ]
+    if mechanism_images.get("enabled") and missing_mechanism_images:
+        raise RuntimeError(
+            "Mechanism image generation incomplete; refusing to render fallback cards: "
+            + ", ".join(missing_mechanism_images)
+        )
     model["cover_image_url"] = cover_image.get("image_url")
     card_specs = build_card_html(model, max_cards=max_cards)
     endpoint = browserless_url or os.getenv(
