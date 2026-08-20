@@ -37,7 +37,7 @@ def test_v2_source_catalog_is_deployed_consistently():
             for source in config.sources.rss
         )
         for pool in ("daily", "weekly", "reserve", "x_watch")
-    } == {"daily": 90, "weekly": 130, "reserve": 80, "x_watch": 100}
+    } == {"daily": 94, "weekly": 130, "reserve": 80, "x_watch": 96}
     assert all(
         "dawnqk-sc5qu5z4da-de.a.run.app" not in str(source.url)
         for source in config.sources.rss
