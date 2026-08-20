@@ -18,7 +18,10 @@ GROUNDING_RULES = f"""- Treat the source item as the primary account of what hap
 - {UNTRUSTED_INPUT_RULE}
 - Distinguish source facts, community opinions, and external context.
 {EVIDENCE_RULES}
-- Cite only supplied tool result IDs. For an editorial profile, a citation may support the main note even when it came from an optional research slot."""
+- Cite only supplied tool result IDs. Put citation IDs only in the JSON
+  `source_refs` field; never write `research-*` or `tool-*` IDs in a title or
+  reader-facing content. For an editorial profile, a citation may support the
+  main note even when it came from an optional research slot."""
 
 
 def target_language_instruction(language: str) -> str:
@@ -78,6 +81,10 @@ def event_narration_prompt(
 
 {profile.enrichment_prompt}
 
+# Event writing
+
+Write the event facts: who did what, under which conditions, what changed, and what result was observed. Use one coherent paragraph of about 180-280 Chinese characters, with a maximum of 320. Put the design meaning in the `fresh_relationship` block.
+
 Target language: {target_language_instruction(language)}.
 
 {GROUNDING_RULES}
@@ -136,10 +143,10 @@ Source references must use exact result IDs from the supplied external results.
 
 def source_read_planning_prompt(profile: LoadedProfile, language: str) -> str:
     """Let the second editor request bounded source evidence before judging."""
-    return f"""You are preparing the second editorial pass for a game-design publication.
+    return f"""You are preparing a game-design insight for publication.
 The original source body is deliberately not included in the task message. Use the
-`read_source` tool to inspect only the original evidence needed to test the first
-editor's account and the proposed design relationship.
+`read_source` tool to inspect only the original evidence needed to test the event
+narration and the proposed design relationship.
 
 Available operations:
 - `sample`: read a bounded opening/middle/closing sample. Use an empty `terms` list.
@@ -173,7 +180,7 @@ def systems_question_prompt(
     language: str,
     block: ProfileBlock,
 ) -> str:
-    """Prompt a third editor to leave one open systems question."""
+    """Prompt the systems pass to leave one open, source-specific question."""
     return f"""{profile.systems_prompt}
 
 Target language: {target_language_instruction(language)}.
@@ -182,14 +189,18 @@ Target language: {target_language_instruction(language)}.
 
 Return valid JSON only:
 {{
+  "decision": "publish" or "reject",
   "question": {{
     "id": "{block.id}",
     "title": "<a natural localized heading>",
     "content": "<the systems question>",
     "source_refs": ["<tool result ID>"]
-  }}
+  }} or null,
+  "rejection_reason": "<empty when publishing; concise internal reason when rejecting>"
 }}
 
+For `publish`, `question` is required and must use block ID `{block.id}`. For
+`reject`, `question` must be null and `rejection_reason` must be non-empty.
 Source references must use exact result IDs from the supplied results."""
 
 

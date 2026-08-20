@@ -123,9 +123,17 @@ def test_editorial_generation_uses_separate_event_and_insight_prompts():
     assert "what_happened" in event
     assert '"event_card"' not in event
     assert '"condition"' not in event
-    assert "事件叙述" in event
+    assert "写事实经过" in event
+    assert "180-280 Chinese characters" in event
+    assert "one coherent paragraph" in event
+    assert "design meaning" in event
+    assert "citation IDs only in the JSON" in event
+    assert "never write `research-*` or `tool-*` IDs" in event
     assert "资深游戏设计师和游戏体验研究者" in insight
     assert "隐藏的“玩家体验结构”" in insight
+    assert "第一位编辑" not in insight
+    assert "2 至 3 个自然段" in insight
+    assert "除自然段和加粗外" in insight
     assert "`read_source` tool" in source_read
     assert '"mode": "sample" or "search"' in source_read
     assert '"decision": "publish" or "reject"' in insight
@@ -140,5 +148,14 @@ def test_editorial_generation_uses_separate_event_and_insight_prompts():
     assert "fixed questionnaire" not in insight
     assert "analysis reason only as a hypothesis" not in insight
     assert "开放复杂巨系统" in systems
-    assert "进一步的观察、讨论、建模或游戏实验" in systems
+    assert "必须从核心体验发现自然生长出来" in systems
+    assert "不要提及“第一位编辑”“第二位编辑”“第三位编辑”" in systems
+    assert "先在内部比较几种可能的系统矛盾" in systems
+    assert "不要让所有标题都以“当……”开头" in systems
+    assert "不要反复使用“这个问题从……生长出来”" in systems
+    assert "1 至 2 个自然段" in systems
+    assert "不要加粗整段" in systems
+    assert "never write `research-*` or `tool-*` IDs" in systems
+    assert '"decision": "publish" or "reject"' in systems
+    assert '"rejection_reason"' in systems
     assert '"id": "systems_question"' in systems

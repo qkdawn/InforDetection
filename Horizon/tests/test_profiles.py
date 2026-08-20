@@ -43,11 +43,22 @@ def test_game_inspiration_profile_requires_playable_depth():
     assert profile.definition.systems == "systems.md"
     assert "以体验为中心的游戏设计编辑" in profile.editorial_prompt
     assert "正在寻找新鲜经验和设计启发" in profile.editorial_prompt
-    assert "不要展示分析过程" in profile.editorial_prompt
+    assert "自然、清楚、紧凑" in profile.editorial_prompt
     assert "隐藏的“玩家体验结构”" in profile.insight_prompt
+    assert "第一位编辑" not in profile.insight_prompt
+    assert "2 至 3 个自然段" in profile.insight_prompt
+    assert "除自然段和加粗外" in profile.insight_prompt
     assert "《系统之美》" in profile.systems_prompt
     assert "开放复杂巨系统" in profile.systems_prompt
-    assert "从一个角色、一个动作或一个局部机制" in profile.systems_prompt
+    assert "从核心体验发现自然生长出来" in profile.systems_prompt
+    assert "不要提及“第一位编辑”“第二位编辑”“第三位编辑”" in profile.systems_prompt
+    assert "不要为了使用这些理论而寻找对应概念" in profile.systems_prompt
+    assert "选择退稿" in profile.systems_prompt
+    assert "先在内部比较几种可能的系统矛盾" in profile.systems_prompt
+    assert "最终正文必须依赖" in profile.systems_prompt
+    assert "第三段必须依赖" not in profile.systems_prompt
+    assert "1 至 2 个自然段" in profile.systems_prompt
+    assert "不要加粗整段" in profile.systems_prompt
     assert "这不是材料摘要" in profile.enrichment_prompt
     assert "核心发现" in profile.enrichment_prompt
     assert "应当退稿" in profile.enrichment_prompt

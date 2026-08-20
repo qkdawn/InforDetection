@@ -214,12 +214,14 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
             ),
             json.dumps(
                 {
+                    "decision": "publish",
                     "question": {
                         "id": "systems_question",
                         "title": "再往下问一层",
                         "content": "当共享条件不断被双方利用时，优势会积累还是自行抵消？",
                         "source_refs": ["fact-1-1"],
-                    }
+                    },
+                    "rejection_reason": "",
                 }
             ),
         ]
@@ -262,6 +264,12 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
         ["zh"],
         tools=FakeTools(),
     )
+    enricher._systems_question_memory[("game-tech-daily", "zh")] = [
+        {
+            "title": "已经用过的通用问题",
+            "opening": "一次行动会重写下一次行动的条件。",
+        }
+    ]
 
     generated = asyncio.run(
         enricher._generate_artifact(
@@ -272,16 +280,24 @@ def test_game_profile_writes_first_artifact_as_one_editorial_composition():
     assert len(requests) == 4
     assert "以体验为中心的游戏设计编辑" in requests[0]["system"]
     assert "what_happened" in requests[0]["system"]
-    assert "事件叙述" in requests[0]["system"]
+    assert "写事实经过" in requests[0]["system"]
     assert "`read_source` tool" in requests[1]["system"]
     assert "资深游戏设计师和游戏体验研究者" in requests[2]["system"]
     assert "隐藏的“玩家体验结构”" in requests[2]["system"]
     assert "系统追问者" in requests[3]["system"]
     assert "开放复杂巨系统" in requests[3]["system"]
-    assert "# Event narration from the first editor" in requests[1]["user"]
-    assert "# Event narration from the first editor" in requests[2]["user"]
-    assert "# Event narration from the first editor" in requests[3]["user"]
-    assert "# Core discovery from the second editor" in requests[3]["user"]
+    assert '"decision": "publish" or "reject"' in requests[3]["system"]
+    assert "# Event narration" in requests[1]["user"]
+    assert "# Event narration" in requests[2]["user"]
+    assert "# Event narration" in requests[3]["user"]
+    assert "# Core experience discovery" in requests[3]["user"]
+    assert "# Questions already used for other items" in requests[3]["user"]
+    assert "已经用过的通用问题" in requests[3]["user"]
+    assert "first editor" not in requests[3]["user"]
+    assert "second editor" not in requests[3]["user"]
+    assert enricher._systems_question_memory[("game-tech-daily", "zh")][-1][
+        "title"
+    ] == "再往下问一层"
     assert "https://example.com/rules" in requests[0]["user"]
     assert "https://example.com/notes" in requests[0]["user"]
     assert "A project released a new architecture." not in requests[1]["user"]
@@ -356,6 +372,77 @@ def test_game_profile_can_reject_when_no_core_discovery_is_defensible():
     )
 
     with pytest.raises(EnrichmentRejected, match="通用结论"):
+        asyncio.run(
+            enricher._generate_artifact(
+                item, game_profiles.get("game-tech-daily"), "zh", []
+            )
+        )
+
+
+def test_game_profile_can_reject_when_core_discovery_has_no_systemic_extension():
+    game_profiles = ProfileRegistry.load(
+        Path(__file__).resolve().parents[1] / "profiles", "game-tech-daily"
+    )
+    item = make_item()
+    item.profile = "game-tech-daily"
+    item.processing.classification.profile = "game-tech-daily"
+    responses = iter(
+        [
+            json.dumps(
+                {
+                    "title": "一张牌留下了谁都能抢的条件",
+                    "block": {
+                        "id": "what_happened",
+                        "title": "先看这件事",
+                        "content": "打出的牌会留在桌面并改变下一次出牌。",
+                        "source_refs": [],
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "tool_requests": [
+                        {
+                            "tool": "read_source",
+                            "arguments": {"mode": "sample", "terms": []},
+                            "purpose": "Check the event account against the source",
+                        }
+                    ]
+                }
+            ),
+            json.dumps(
+                {
+                    "decision": "publish",
+                    "insight": {
+                        "id": "fresh_relationship",
+                        "title": "共享条件",
+                        "content": "帮助队友的动作也会给对手留下机会。",
+                        "source_refs": [],
+                    },
+                    "rejection_reason": "",
+                }
+            ),
+            json.dumps(
+                {
+                    "decision": "reject",
+                    "question": None,
+                    "rejection_reason": "材料不足以支持核心发现继续演化为具体系统关系。",
+                }
+            ),
+        ]
+    )
+
+    async def complete(**kwargs):
+        return next(responses)
+
+    enricher = ContentEnricher(
+        SimpleNamespace(complete=complete),
+        game_profiles,
+        ["zh"],
+        tools=FakeTools(),
+    )
+
+    with pytest.raises(EnrichmentRejected, match="具体系统关系"):
         asyncio.run(
             enricher._generate_artifact(
                 item, game_profiles.get("game-tech-daily"), "zh", []

@@ -148,12 +148,24 @@ class GeneratedInsight(BaseModel):
 
 
 class GeneratedSystemsQuestion(BaseModel):
-    question: ContentBlock
+    decision: Literal["publish", "reject"]
+    question: Optional[ContentBlock] = None
+    rejection_reason: str = ""
 
     @model_validator(mode="after")
-    def validate_question(self) -> "GeneratedSystemsQuestion":
-        if not self.question.title.strip() or not self.question.content.strip():
-            raise ValueError("systems question must not be empty")
+    def validate_decision(self) -> "GeneratedSystemsQuestion":
+        if self.decision == "publish":
+            if self.question is None:
+                raise ValueError("publish requires a systems question")
+            if not self.question.title.strip() or not self.question.content.strip():
+                raise ValueError("published systems question must not be empty")
+            if self.rejection_reason.strip():
+                raise ValueError("publish must not include a rejection reason")
+        else:
+            if self.question is not None:
+                raise ValueError("reject must not include a systems question")
+            if not self.rejection_reason.strip():
+                raise ValueError("reject requires a rejection reason")
         return self
 
 
@@ -216,6 +228,10 @@ class ContentEnricher:
         self.languages = languages
         self.console = console or Console(stderr=True)
         self.tools = tools or ToolRegistry()
+        # Keep recent systems questions so a batch does not converge on one
+        # reusable shape across otherwise unrelated items.
+        self._systems_question_lock = asyncio.Lock()
+        self._systems_question_memory: dict[tuple[str, str], list[dict[str, str]]] = {}
         self._validate_profile_tools()
 
     def _validate_profile_tools(self) -> None:
@@ -691,41 +707,70 @@ class ContentEnricher:
         by_id = {event.id: event}
         by_id[insight.id] = insight
         if systems_block is not None:
-            systems_generated = await self._complete_model(
-                GeneratedSystemsQuestion,
-                system=systems_question_prompt(profile, language, systems_block),
-                user=(
-                    item_context(
-                        item,
-                        profile,
-                        include_content=True,
-                        include_research=False,
-                    )
-                    + "\n\n# Event narration from the first editor\n\n"
-                    + json.dumps(
-                        {
-                            "title": event_generated.title,
-                            "content": event.content,
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n\n# Core discovery from the second editor\n\n"
-                    + json.dumps(
-                        {
-                            "title": insight.title,
-                            "content": insight.content,
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n\n# Collected reference results\n\n"
-                    + reference_text
-                ),
-                error_message="Invalid systems question artifact",
-                validator=lambda generated: self._validate_systems_question(
-                    generated, systems_block.id
-                ),
+            systems_user = (
+                item_context(
+                    item,
+                    profile,
+                    include_content=True,
+                    include_research=False,
+                )
+                + "\n\n# Event narration\n\n"
+                + json.dumps(
+                    {
+                        "title": event_generated.title,
+                        "content": event.content,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n# Core experience discovery\n\n"
+                + json.dumps(
+                    {
+                        "title": insight.title,
+                        "content": insight.content,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n# Collected reference results\n\n"
+                + reference_text
             )
-            by_id[systems_generated.question.id] = systems_generated.question
+            memory_key = (profile.id, language)
+            async with self._systems_question_lock:
+                previous = self._systems_question_memory.get(memory_key, [])[-8:]
+                if previous:
+                    systems_user += (
+                        "\n\n# Questions already used for other items\n\n"
+                        "Use these only to avoid repeating their wording or relationship. "
+                        "Do not mention them or imitate their structure. Find a different "
+                        "source-specific tension for the current item. Never reuse facts "
+                        "from these other items.\n"
+                        + json.dumps(previous, ensure_ascii=False)
+                    )
+                systems_generated = await self._complete_model(
+                    GeneratedSystemsQuestion,
+                    system=systems_question_prompt(profile, language, systems_block),
+                    user=systems_user,
+                    error_message="Invalid systems question artifact",
+                    validator=lambda generated: self._validate_systems_question(
+                        generated, systems_block.id
+                    ),
+                )
+                if systems_generated.decision == "publish" and systems_generated.question:
+                    self._systems_question_memory.setdefault(memory_key, []).append(
+                        {
+                            "title": systems_generated.question.title,
+                            "opening": systems_generated.question.content.replace(
+                                "\n", " "
+                            )[:180],
+                        }
+                    )
+            if systems_generated.decision == "reject":
+                raise EnrichmentRejected(systems_generated.rejection_reason)
+            question = systems_generated.question
+            if question is None:
+                raise ValueError(
+                    "Published editorial decision is missing its systems question"
+                )
+            by_id[question.id] = question
         blocks = [
             by_id[block.id]
             for block in configured_blocks
@@ -814,9 +859,14 @@ class ContentEnricher:
     def _validate_systems_question(
         generated: GeneratedSystemsQuestion, expected_id: str
     ) -> None:
-        if generated.question.id != expected_id:
+        if generated.decision == "reject":
+            return
+        question = generated.question
+        if question is None:
+            raise ValueError("published decision is missing its systems question")
+        if question.id != expected_id:
             raise ValueError(
-                f"systems question block ID {generated.question.id} does not match {expected_id}"
+                f"systems question block ID {question.id} does not match {expected_id}"
             )
 
     @staticmethod
