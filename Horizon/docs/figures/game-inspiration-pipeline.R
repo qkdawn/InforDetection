@@ -164,11 +164,14 @@ source_row <- function(name, x, y, title, detail, colour, fill) {
   txt(detail, x + 0.028, y - 0.015, 4.0, COL[["muted"]], "plain", "left")
 }
 
-stage_title <- function(stage, title, left, top, colour) {
+stage_title <- function(stage, title, left, top, colour, route = "") {
   grid.circle(x = unit(left + 0.018, "npc"), y = unit(top - 0.019, "npc"),
               r = unit(2.5, "mm"), gp = gpar(fill = colour, col = NA))
   txt(stage, left + 0.018, top - 0.019, 4.5, COL[["white"]], "bold")
   txt(title, left + 0.041, top - 0.019, 5.1, COL[["ink"]], "bold", "left")
+  if (nzchar(route)) {
+    txt(route, left + 0.041, top - 0.045, 3.2, COL[["muted"]], "plain", "left")
+  }
 }
 
 insight_card <- function(name, left, bottom, title, detail, colour, fill) {
@@ -184,8 +187,8 @@ draw_figure <- function() {
 
   txt("游戏创意雷达：从多源信息到游戏设计洞察", 0.03, 0.975,
       11.8, COL[["ink"]], "bold", "left")
-  txt("来源策略定义观察范围；内容本身决定主题，经筛选与证据增强后转译为可用的设计问题。",
-      0.03, 0.946, 6.4, COL[["muted"]], "plain", "left")
+  txt("n8n + Horizon API 主链：来源定义观察范围，内容路由主题，候选经证据与编辑后发布。",
+      0.03, 0.946, 5.9, COL[["muted"]], "plain", "left")
   rule(0.03, 0.925, 0.97, 0.925, COL[["border"]], 0.8)
 
   # Column frames and headers.
@@ -199,31 +202,31 @@ draw_figure <- function() {
   # a | Observation scope, cadence and source governance.
   panel_box(0.035, 0.575, 0.185, 0.285, COL[["light"]], COL[["border"]], 0.45)
   sub_title("a(i)", "多源发现池", 0.035, 0.86, COL[["teal"]])
-  txt("300 RSS / 100 X", 0.052, 0.815, 7.5, COL[["teal"]], "bold", "left")
+  txt("约 300 RSS / 100 X 路由", 0.052, 0.815, 6.9, COL[["teal"]], "bold", "left")
   txt("来源标签只说明出处，不决定主题板块", 0.052, 0.787, 4.2, COL[["muted"]], "plain", "left")
   draw_generated("source-pool", 0.192, 0.808, 9.5)
   source_row("rss", 0.060, 0.744, "原生 RSS / Atom", "开发复盘 · 研究 · 行业", COL[["teal"]], COL[["teal_pale"]])
   source_row("link", 0.060, 0.682, "RSSHub 路由", "站点聚合 · 频道订阅", COL[["blue"]], COL[["blue_pale"]])
-  source_row("at-sign", 0.060, 0.620, "X 发现池", "高信号账号 · 回复线索", COL[["blue"]], COL[["blue_pale"]])
+  source_row("at-sign", 0.060, 0.620, "X 路由（RSSHub）", "高信号账号 · 回复线索", COL[["blue"]], COL[["blue_pale"]])
   rule(0.050, 0.592, 0.205, 0.592, COL[["border"]], 0.45)
   txt("来源只负责发现，主题由内容决定", 0.052, 0.585, 4.0, COL[["muted"]], "plain", "left")
 
   panel_box(0.035, 0.365, 0.185, 0.175, COL[["white"]], COL[["border"]], 0.45)
   sub_title("a(ii)", "调度节奏", 0.035, 0.540, COL[["blue"]])
-  source_row("clock-3", 0.060, 0.492, "Daily", "24 h · 90 RSS + 100 X", COL[["muted"]], COL[["light"]])
+  source_row("clock-3", 0.060, 0.492, "Daily", "24 h · 约 190 路由", COL[["muted"]], COL[["light"]])
   source_row("refresh-cw", 0.060, 0.442, "Weekly", "168 h · 130 RSS", COL[["blue"]], COL[["blue_pale"]])
   source_row("archive", 0.060, 0.392, "Reserve", "720 h · 80 RSS", COL[["gold"]], COL[["gold_pale"]])
 
   panel_box(0.035, 0.070, 0.185, 0.260, COL[["white"]], COL[["border"]], 0.45)
   sub_title("a(iii)", "来源治理", 0.035, 0.330, COL[["red"]])
-  source_row("layers-3", 0.060, 0.282, "A/B/C 分层", "信号质量与采集优先级", COL[["gold"]], COL[["gold_pale"]])
+  source_row("layers-3", 0.060, 0.282, "来源池分层", "daily / weekly / reserve", COL[["gold"]], COL[["gold_pale"]])
   source_row("shield-check", 0.060, 0.225, "端点健康", "可用性与域名安全", COL[["red"]], COL[["red_pale"]])
   source_row("link", 0.060, 0.168, "URL 归一化", "跨来源合并同一内容", COL[["teal"]], COL[["teal_pale"]])
   source_row("database", 0.060, 0.111, "历史去重", "避免重复进入候选集", COL[["blue"]], COL[["blue_pale"]])
 
   # b | Three numbered content-intelligence stages.
   panel_box(0.255, 0.680, 0.425, 0.180, COL[["teal_pale"]], COL[["border"]], 0.45)
-  stage_title("1", "采集与标准化", 0.255, 0.860, COL[["teal"]])
+  stage_title("1", "采集与标准化", 0.255, 0.860, COL[["teal"]], "/fetch")
   txt("多源发现池", 0.270, 0.792, 4.3, COL[["muted"]], "plain", "left")
   xs <- c(0.305, 0.382, 0.459, 0.536, 0.613)
   acq_icons <- c("download", "scan-search", "link", "shield-check", "archive")
@@ -241,7 +244,7 @@ draw_figure <- function() {
   }
 
   panel_box(0.255, 0.390, 0.425, 0.265, COL[["blue_pale"]], COL[["border"]], 0.45)
-  stage_title("2", "内容路由与灵感评分", 0.255, 0.655, COL[["blue"]])
+  stage_title("2", "内容路由与灵感评分", 0.255, 0.655, COL[["blue"]], "/score")
   module_node("file-text", 0.292, 0.560, "标题 + 正文", "单条 item", COL[["muted"]], COL[["white"]], 3.9, 3.8, 4.1, 3.6)
   generated_node("classification-scoring", 0.360, 0.560, "分类器", "LLM prompt", COL[["blue"]], COL[["white"]], 0.052, 0.052, 7.0, 4.1, 3.6)
   rule(0.389, 0.560, 0.420, 0.560, COL[["blue"]], 0.55)
@@ -265,23 +268,23 @@ draw_figure <- function() {
   flow_arrow(0.590, 0.560, 0.601, 0.560, COL[["blue"]], 0.55)
 
   panel_box(0.255, 0.070, 0.425, 0.285, COL[["white"]], COL[["border"]], 0.45)
-  stage_title("3", "板块内收敛", 0.255, 0.355, COL[["red"]])
-  xs <- c(0.302, 0.382, 0.462, 0.542, 0.622)
-  filter_icons <- c("funnel", "layers-3", "message-square-text", "users", "archive")
-  filter_titles <- c("阈值", "语义去重", "上下文补取", "平衡配额", "候选集")
-  filter_details <- c("≥ 7.0", "同板块", "X replies", "topic + cap", "selected")
-  filter_colours <- c(COL[["blue"]], COL[["blue"]], COL[["teal"]], COL[["gold"]], COL[["red"]])
+  stage_title("3", "筛选、去重与重评", 0.255, 0.355, COL[["red"]], "/filter")
+  xs <- c(0.315, 0.420, 0.525, 0.630)
+  filter_icons <- c("funnel", "layers-3", "message-square-text", "archive")
+  filter_titles <- c("阈值", "语义去重", "回复重评", "过滤候选")
+  filter_details <- c("≥ 7.0", "同板块", "X replies", "filtered")
+  filter_colours <- c(COL[["blue"]], COL[["blue"]], COL[["teal"]], COL[["red"]])
   for (i in seq_along(xs)) {
     module_node(filter_icons[[i]], xs[[i]], 0.235, filter_titles[[i]], filter_details[[i]],
-                filter_colours[[i]], if (i == 5) COL[["red_pale"]] else COL[["white"]],
+                filter_colours[[i]], if (i == length(xs)) COL[["red_pale"]] else COL[["white"]],
                 3.8, 3.7, 4.2, 3.6)
     if (i < length(xs)) flow_arrow(xs[[i]] + 0.028, 0.235, xs[[i + 1]] - 0.028, 0.235, COL[["border"]], 0.5)
   }
-  txt("阈值、板块内语义去重、上下文补取和配额共同决定最终候选", 0.270, 0.098, 4.0, COL[["muted"]], "plain", "left")
+  txt("阈值、板块内语义去重与上下文重评，形成进入研究阶段的候选集", 0.270, 0.098, 3.9, COL[["muted"]], "plain", "left")
 
   # c | Evidence, design translation and delivery.
   panel_box(0.715, 0.690, 0.250, 0.170, COL[["teal_pale"]], COL[["border"]], 0.45)
-  stage_title("4", "证据检索与引用", 0.715, 0.860, COL[["teal"]])
+  stage_title("4", "证据检索与引用", 0.715, 0.860, COL[["teal"]], "/research")
   generated_node("evidence-enrichment", 0.765, 0.765, "背景检索", "工具规划", COL[["teal"]], COL[["white"]], 0.050, 0.050, 7.0, 4.0, 3.4)
   module_node("link", 0.840, 0.765, "引用校验", "来源对应主张", COL[["teal"]], COL[["white"]], 3.7, 3.6, 4.0, 3.4)
   module_node("file-check", 0.915, 0.765, "证据包", "可引用背景", COL[["red"]], COL[["red_pale"]], 3.7, 3.6, 4.0, 3.4)
@@ -289,15 +292,16 @@ draw_figure <- function() {
   flow_arrow(0.869, 0.765, 0.886, 0.765, COL[["teal"]], 0.5)
 
   panel_box(0.715, 0.380, 0.250, 0.285, COL[["blue_pale"]], COL[["border"]], 0.45)
-  stage_title("5", "设计洞察转译", 0.715, 0.665, COL[["blue"]])
-  insight_card("file-check", 0.730, 0.565, "发生了什么", "事实 + 背景", COL[["teal"]], COL[["white"]])
-  insight_card("git-branch", 0.730, 0.480, "真正新鲜的关系", "主体 · 条件 · 结果", COL[["blue"]], COL[["white"]])
-  insight_card("gamepad-2", 0.730, 0.395, "它启发什么游戏问题", "规则 · 选择 · 张力", COL[["red"]], COL[["white"]])
+  stage_title("5", "候选评估、终审与设计转译", 0.715, 0.665, COL[["blue"]], "/evaluate → /select → /enrich")
+  insight_card("sparkles", 0.730, 0.565, "评估候选", "设计潜力 · 证据质量", COL[["blue"]], COL[["white"]])
+  insight_card("users", 0.730, 0.480, "终审选择 10 条", "≥4 主题 · ≤2 / 来源", COL[["gold"]], COL[["gold_pale"]])
+  insight_card("gamepad-2", 0.730, 0.395, "编辑成稿", "事实 · 新鲜关系 · 游戏问题", COL[["red"]], COL[["red_pale"]])
   flow_arrow(0.840, 0.560, 0.840, 0.550, COL[["border"]], 0.45)
   flow_arrow(0.840, 0.475, 0.840, 0.465, COL[["border"]], 0.45)
+  txt("不满足事实、证据或设计价值的候选直接退稿", 0.730, 0.387, 3.3, COL[["red"]], "plain", "left")
 
   panel_box(0.715, 0.070, 0.250, 0.275, COL[["red_pale"]], COL[["border"]], 0.45)
-  stage_title("6", "多模态报告与分发", 0.715, 0.345, COL[["red"]])
+  stage_title("6", "多模态报告与分发", 0.715, 0.345, COL[["red"]], "/report → /feishu")
   generated_node("report-assembly", 0.765, 0.265, "完整报告", "Markdown + HTML", COL[["red"]], COL[["white"]], 0.052, 0.052, 7.0, 4.0, 3.4)
   generated_node("concept-art", 0.885, 0.265, "封面 / 概念图", "AI images", COL[["gold"]], COL[["gold_pale"]], 0.052, 0.052, 7.0, 4.0, 3.4)
   module_node("monitor-down", 0.765, 0.155, "卡片组", "1080 × 1440", COL[["blue"]], COL[["white"]], 3.8, 3.7, 4.0, 3.4)
