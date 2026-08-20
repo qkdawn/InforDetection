@@ -6,14 +6,15 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+
 from src.image_generation import (
     CardVisualAgent,
     build_composition_prompt,
     build_concept_prompt,
     build_cover_prompt,
     build_mechanism_prompt,
-    generate_concept_images,
     generate_composition_images,
+    generate_concept_images,
     generate_cover_image,
     generate_mechanism_images,
 )
@@ -44,29 +45,49 @@ def test_concept_prompt_uses_all_three_report_blocks() -> None:
     assert "gouache" in prompt
     assert "game designer's visual development sketch" in prompt
     assert "wide 3:2 environmental scene" in prompt
-    assert "black-background product photography" in prompt
-    assert "a single artifact floating by itself" in prompt
-    assert "maps or charts shown as the main subject" in prompt
+    assert "right half visually rich" in prompt
+    assert "left half remains quieter" in prompt
+    assert "museum, map, chart, archive" in prompt
+    assert "may become the main subject" in prompt
+    assert "inhabited, unfolding scene" in prompt
+    assert "sterile catalog presentation" in prompt
+    assert "isolated floating artifacts" in prompt
+    assert "maps or charts shown as the main subject" not in prompt
     assert "watermarks" in prompt
 
 
 def test_mechanism_prompt_matches_the_native_card_aspect_ratio() -> None:
     prompt = build_mechanism_prompt(_item())
 
-    assert "makes the source event's process visible" in prompt
-    assert "event-process visual agent" in prompt
-    assert "how it actually unfolded" in prompt
+    assert "source event's defining relationship" in prompt
+    assert "event-relationship visual agent" in prompt
+    assert "how the relationship actually works" in prompt
     assert "objects, materials, environments" in prompt
     assert "hand-painted gouache and watercolor" in prompt
     assert "tactile pigment" in prompt
-    assert "five to seven equal vertical panels" in prompt
+    assert "temporal sequence" in prompt
+    assert "state comparison" in prompt
+    assert "spatial progression" in prompt
+    assert "causal chain or feedback pattern" in prompt
+    assert "Do not invent chronology" in prompt
+    assert "five to seven equal vertical panels" not in prompt
+    assert "equal panels are not required" in prompt
+    assert "storyboard" not in prompt
+    assert "adjacent moments" not in prompt
+    assert "every panel" not in prompt
+    assert "first and final panel" not in prompt
+    assert "one uninterrupted horizontal reading path" in prompt
     assert "native wide 17:10 canvas" in prompt
-    assert "Use the full canvas height" in prompt
-    assert "without cropping" in prompt
+    assert "shallow 3:1 center crop" in prompt
+    assert "central fifty-five percent of the canvas height" in prompt
+    assert "upper and lower areas only for expendable environmental continuation" in prompt
+    assert "centered shallow 3:1 crop" in prompt
+    assert "Use the full canvas height" not in prompt
+    assert "without cropping" not in prompt
     assert "five percent at both the left and right edges" in prompt
     assert "must sit fully inside those margins" in prompt
     assert "Do not render titles, captions" in prompt
-    assert "single undivided panorama" in prompt
+    assert "multiple rows" in prompt
     assert "deep charcoal-green field" not in prompt
     assert "coral red" not in prompt
     assert "1536x512" not in prompt
@@ -87,7 +108,8 @@ def test_mechanism_prompt_does_not_require_a_written_chain() -> None:
     assert "空间边界同时成为时间边界" not in prompt
     assert "Mechanism chain:" not in prompt
     assert "hand-painted gouache" in prompt
-    assert "five to seven readable moments" in prompt
+    assert "Do not invent chronology" in prompt
+    assert "fewest distinct stages, states, zones" in prompt
     assert "deep charcoal-green" not in prompt
 
 
@@ -103,10 +125,22 @@ def test_cover_prompt_gives_ai_freedom_but_keeps_brand_safety() -> None:
 
     assert "季节成为一条可见边界" in prompt
     assert "城市把影子当作通行证" in prompt
-    assert "independently choose" in prompt
+    assert "果园两侧呈现不同季节" in prompt
+    assert "Daily signals" in prompt
+    assert "one beautiful XR fantasy world" in prompt
+    assert "Do not make a collage of every story" in prompt
+    assert "independently choose the world" in prompt
     assert "light or dark atmosphere" in prompt
+    assert "pale field-notes mood" in prompt
+    assert "luminous XR dream" in prompt
+    assert "Surprise is welcome" in prompt
+    assert "immense spatial depth" in prompt
+    assert "warm ivory paper" in prompt
+    assert "mineral blue" in prompt
+    assert "weathered yellow" in prompt
+    assert "Shared-theme synthesis" not in prompt
+    assert "at least three of today's signals" not in prompt
     assert "No words, letters, numbers" in prompt
-    assert "glowing marker dots" in prompt
 
 
 def test_composition_prompt_gives_image2_all_agent_and_template_context() -> None:
@@ -119,6 +153,12 @@ def test_composition_prompt_gives_image2_all_agent_and_template_context() -> Non
     assert "Input image 1 is the hero artwork" in prompt
     assert "2:3" in prompt
     assert "不要生成任何文字" in prompt
+    assert "画面可以明亮或深沉、克制或多彩" in prompt
+    assert "亮色、深色或由材料自然形成的低细节空间" in prompt
+    assert "让材料决定底色、明暗范围、色彩数量与饱和度" in prompt
+    assert "唯一的强调色" not in prompt
+    assert "深色中性底" not in prompt
+    assert "足够安静的深色区域" not in prompt
 
 
 def test_disabled_generation_keeps_item_unchanged(monkeypatch, tmp_path: Path) -> None:
@@ -189,6 +229,35 @@ def test_mechanism_generation_no_longer_requires_text_steps(
     assert request.args[0].endswith("/images/generations")
     assert request.kwargs["json"]["size"] == "1792x1056"
     assert Path(item["mechanism_image_path"]).read_bytes() == image_bytes
+
+
+def test_mechanism_generation_retries_transient_404(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("HORIZON_IMAGE_GENERATION_ENABLED", "true")
+    monkeypatch.setenv("HORIZON_IMAGE_API_KEY_ENV", "TEST_IMAGE_KEY")
+    monkeypatch.setenv("TEST_IMAGE_KEY", "secret")
+    monkeypatch.setenv("HORIZON_IMAGE_RETRY_ATTEMPTS", "2")
+    image_bytes = b"\x89PNG\r\n\x1a\nretry-404"
+    not_found = httpx.Response(
+        404, request=httpx.Request("POST", "https://example.com/v1/images/generations")
+    )
+    success = MagicMock()
+    success.status_code = 200
+    success.raise_for_status.return_value = None
+    success.json.return_value = {
+        "data": [{"b64_json": base64.b64encode(image_bytes).decode("ascii")}]
+    }
+    client = AsyncMock()
+    client.post.side_effect = [not_found, success]
+    client.__aenter__.return_value = client
+    client.__aexit__.return_value = None
+    monkeypatch.setattr("src.image_generation.httpx.AsyncClient", lambda **_: client)
+
+    result = asyncio.run(generate_mechanism_images([_item()], tmp_path))
+
+    assert result["generated"] == 1
+    assert client.post.await_count == 2
 
 
 def test_mechanism_generation_is_independent_from_the_hero_image(
@@ -387,6 +456,7 @@ def test_composition_batch_stops_calling_after_provider_failure(
     monkeypatch.setenv("HORIZON_IMAGE_GENERATION_ENABLED", "true")
     monkeypatch.setenv("HORIZON_IMAGE_API_KEY_ENV", "TEST_IMAGE_KEY")
     monkeypatch.setenv("HORIZON_IMAGE_CONCURRENCY", "1")
+    monkeypatch.setenv("HORIZON_IMAGE_RETRY_ATTEMPTS", "1")
     monkeypatch.setenv("TEST_IMAGE_KEY", "secret")
     request = httpx.Request("POST", "https://example.test/images/generations")
     failed_http_response = httpx.Response(404, request=request)
@@ -478,6 +548,48 @@ def test_generation_retries_transient_provider_failure(
     }
     client = AsyncMock()
     client.post.side_effect = [failed_response, success_response]
+    client.__aenter__.return_value = client
+    client.__aexit__.return_value = None
+    monkeypatch.setattr("src.image_generation.httpx.AsyncClient", lambda **_: client)
+    sleep = AsyncMock()
+    monkeypatch.setattr("src.image_generation.asyncio.sleep", sleep)
+
+    result = asyncio.run(generate_concept_images([_item()], tmp_path))
+
+    assert result["generated"] == 1
+    assert result["failed"] == 0
+    assert client.post.await_count == 2
+    sleep.assert_awaited_once()
+
+
+def test_generation_retries_http_200_upstream_error_payload(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("HORIZON_IMAGE_GENERATION_ENABLED", "true")
+    monkeypatch.setenv("HORIZON_IMAGE_API_KEY_ENV", "TEST_IMAGE_KEY")
+    monkeypatch.setenv("TEST_IMAGE_KEY", "secret")
+    monkeypatch.setenv("HORIZON_IMAGE_RETRY_ATTEMPTS", "2")
+    image_bytes = b"\x89PNG\r\n\x1a\nretry-payload"
+
+    upstream_error = MagicMock()
+    upstream_error.status_code = 200
+    upstream_error.headers = {}
+    upstream_error.raise_for_status.return_value = None
+    upstream_error.json.return_value = {
+        "error": {
+            "code": "upstream_error",
+            "type": "upstream_error",
+            "message": "Upstream error, please retry.",
+        }
+    }
+    success = MagicMock()
+    success.status_code = 200
+    success.raise_for_status.return_value = None
+    success.json.return_value = {
+        "data": [{"b64_json": base64.b64encode(image_bytes).decode("ascii")}]
+    }
+    client = AsyncMock()
+    client.post.side_effect = [upstream_error, success]
     client.__aenter__.return_value = client
     client.__aexit__.return_value = None
     monkeypatch.setattr("src.image_generation.httpx.AsyncClient", lambda **_: client)

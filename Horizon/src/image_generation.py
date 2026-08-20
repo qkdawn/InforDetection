@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
 logger = logging.getLogger(__name__)
 _TRUTHY = {"1", "true", "yes", "on"}
-
 
 @dataclass(frozen=True)
 class ConceptImageConfig:
@@ -232,6 +232,12 @@ def build_concept_prompt(item: dict[str, Any]) -> str:
                 "at card size while the left half remains quieter for the title layer."
             ),
             (
+                "If a museum, map, chart, archive, or other information space is essential "
+                "to the source, it may become the main subject. Depict it as an inhabited, "
+                "unfolding scene with spatial and human consequences, not as a sterile catalog "
+                "shot or generic diagram."
+            ),
+            (
                 "Lighting/mood: environmental light shaped through painted color and "
                 "edges, atmospheric but restrained"
             ),
@@ -240,67 +246,70 @@ def build_concept_prompt(item: dict[str, Any]) -> str:
                 "fresh relationship visible instead of illustrating the wording literally"
             ),
             (
-                "Avoid: words, letters, captions, logos, watermarks, UI, diagrams, "
-                "split-screen labels, generic digital fantasy rendering, neon sci-fi, "
-                "cute cartoon styling, black-background product photography, museum object "
-                "catalog shots, a single artifact floating by itself, maps or charts shown "
-                "as the main subject, and literal reproductions of source illustrations"
+                "Avoid: words, letters, captions, logos, watermarks, UI, split-screen labels, "
+                "generic neon sci-fi, sterile catalog presentation, isolated floating artifacts, "
+                "and literal reproductions of source illustrations"
             ),
         ]
     )
 
 
 def build_mechanism_prompt(item: dict[str, Any]) -> str:
-    """Turn the reported event into a source-grounded storyboard ribbon."""
+    """Turn the reported event into a source-grounded horizontal visual explanation."""
     return "\n".join(
         [
             "Use case: stylized-concept",
             (
-                "Asset type: a horizontal editorial storyboard ribbon that makes the "
-                "source event's process visible through adjacent moments"
+                "Asset type: a horizontal editorial mechanism image that makes the "
+                "source event's defining relationship visually understandable"
             ),
             f"Editorial subject: {item.get('title', '')}",
             "Event to visualize:",
             _compact(item.get("what_happened"), 420),
             (
-                "Role: act as the event-process visual agent. Reconstruct the concrete sequence "
-                "inside the report: who or what acts first, what changes, what is revealed or "
-                "withheld, and what state exists at the end. Divide that sequence into five to "
-                "seven readable moments arranged from left to right."
+                "Role: act as the event-relationship visual agent. Identify the relationship that the "
+                "report actually makes visible, then choose the visual grammar that explains it "
+                "most truthfully: a temporal sequence, a state comparison, a spatial progression, "
+                "or a causal chain or feedback pattern. Do not invent chronology when the source "
+                "describes a comparison, spatial condition, or non-sequential relationship."
             ),
             (
                 "Truth and imagination: keep the people, objects, materials, environments, and "
                 "actions recognizable and grounded in the source. Follow the event's own logic and "
-                "use consistent characters, objects, weather, and geography across every panel. "
-                "Choose the moments, viewpoint, traces, repetition, or material transformation "
-                "that best reveal how it actually unfolded."
+                "keep characters, objects, weather, and geography consistent wherever they recur. "
+                "Choose the viewpoints, traces, repetition, contrast, or material transformation "
+                "that best reveal how the relationship actually works."
             ),
             (
-                "Composition: native wide 17:10 canvas. Fill the entire canvas with one "
-                "uninterrupted horizontal strip of five to seven equal vertical panels separated "
-                "by fine ink rules. Each panel shows one distinct action or state, with a clear "
-                "left-to-right rhythm like an illustrated field notebook. Use the full canvas "
-                "height for the storyboard rather than placing it inside a smaller band or adding "
-                "a separate panoramic scene above it. Leave a continuous warm-paper safety margin "
-                "of about five percent at both the left and right edges. The first and final panel "
-                "borders, figures, and objects must sit fully inside those margins rather than "
+                "Composition: native wide 17:10 canvas, designed for a shallow 3:1 center crop "
+                "in the final report. Fill the canvas with one uninterrupted horizontal reading "
+                "path. Organize the event as the fewest distinct "
+                "stages, states, zones, or linked consequences needed to make its relationship "
+                "clear. Dividers may be used when they clarify the chosen grammar, but equal panels "
+                "are not required. Keep every essential face, figure, action, object, divider, and "
+                "relationship cue inside the central fifty-five percent of the canvas height. Use "
+                "the upper and lower areas only for expendable environmental continuation, texture, "
+                "or atmosphere, so a centered shallow crop never removes meaning. Leave a continuous "
+                "warm-paper safety margin "
+                "of about five percent at both the left and right edges. All dividers, figures, "
+                "and objects at the outer edges must sit fully inside those margins rather than "
                 "touching or continuing beyond the canvas edge."
             ),
             (
                 "Art direction: concise editorial game-design illustration on warm weathered paper, "
                 "hand-painted gouache and watercolor with sparse graphite or ink, strong silhouettes, "
                 "tactile pigment, selective detail, and visibly authored marks. Let the subject establish "
-                "its own restrained color world while keeping every panel visually coherent."
+                "its own restrained color world while keeping the whole image visually coherent."
             ),
             (
                 "Constraints: pure visual storytelling. Do not render titles, captions, prose, labels, "
                 "letters, numbers, logos, watermarks, UI, charts, or explanatory typography. Do not "
-                "make a single undivided panorama, a comic page with speech balloons, or a grid with "
-                "multiple rows."
+                "make a comic page with speech balloons or a grid with multiple rows. Preserve one "
+                "clear horizontal flow even when the chosen grammar is comparative or spatial."
             ),
             (
-                "Deliver a publication-ready 17:10 storyboard that remains complete and "
-                "understandable when scaled down without cropping."
+                "Deliver a publication-ready 17:10 visual explanation that remains complete and "
+                "understandable after a centered shallow 3:1 crop and thumbnail scaling."
             ),
         ]
     )
@@ -469,6 +478,25 @@ async def _image_bytes_from_payload(
     response_name: str,
 ) -> bytes:
     """Read image bytes from Images or Responses compatible payloads."""
+    provider_error = payload.get("error")
+    if provider_error:
+        if isinstance(provider_error, dict):
+            code = _compact(provider_error.get("code") or provider_error.get("type"), 80)
+            message = _compact(provider_error.get("message") or provider_error, 500)
+        else:
+            code = "provider_error"
+            message = _compact(provider_error, 500)
+        detail = ": ".join(part for part in (code, message) if part)
+        error = f"{response_name} returned {detail or 'an error'}"
+        if code.lower() in {
+            "upstream_error",
+            "server_error",
+            "timeout",
+            "rate_limit_exceeded",
+        }:
+            raise _RetryableImageError(error)
+        raise RuntimeError(error)
+
     candidates: list[dict[str, Any]] = []
     candidates.extend(row for row in payload.get("data") or [] if isinstance(row, dict))
     for output in payload.get("output") or []:
@@ -537,7 +565,9 @@ async def _request_image(
                 headers={"Authorization": f"Bearer {api_key}"},
                 json=request,
             )
-            if response.status_code == 429 or response.status_code >= 500:
+            # Some compatible image gateways briefly return 404 while routing
+            # a model request; treat it like a transient provider failure.
+            if response.status_code in {404, 429} or response.status_code >= 500:
                 response.raise_for_status()
             response.raise_for_status()
             payload = response.json()
@@ -546,7 +576,7 @@ async def _request_image(
             )
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
-            if status != 429 and status < 500:
+            if status not in {404, 429} and status < 500:
                 raise
             last_error = exc
         except (
