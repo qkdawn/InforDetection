@@ -1,0 +1,102 @@
+{
+  "run_id": "run-20260819T011909Z-bb0d9682",
+  "date": "2026-08-19",
+  "name": "游戏创意雷达",
+  "fetched": 226,
+  "selected": 10,
+  "markdown": "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/report.md",
+  "cards": [
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/01-cover.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/02-directory.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/03-item-01.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/04-item-01-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/05-item-02.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/06-item-02-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/07-item-03.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/08-item-03-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/09-item-04.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/10-item-04-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/11-item-05.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/12-item-05-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/13-item-06.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/14-item-06-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/15-item-07.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/16-item-07-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/17-item-08.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/18-item-08-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/19-item-09.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/20-item-09-detail.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/21-item-10.png",
+    "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cards/22-item-10-detail.png"
+  ],
+  "card_count": 22,
+  "image_size": "1080x1440",
+  "concept_images": {
+    "enabled": true,
+    "model": "gpt-image-2",
+    "generated": 0,
+    "cached": 10,
+    "failed": 0,
+    "images": [
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/d4d874106b739c93e19a.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/a6ff794f7b42aec53bc4.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/888a1fdea1f6f0318a01.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/9e56bece2ae18ab56993.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/797ec7f71ae1571a6f2f.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/45ca62770ed6921e5301.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/7d86c8e9d88d88529cc6.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/9f86ff6b8effda15024c.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/8b24a58b658871613a6c.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/concept-images/7f20936dfc1cf14d1d23.png"
+    ],
+    "errors": {}
+  },
+  "mechanism_images": {
+    "enabled": true,
+    "model": "gpt-image-2",
+    "generated": 0,
+    "cached": 10,
+    "failed": 0,
+    "images": [
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-049585a5fcbe98fb179a.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-35e013222a6121bd0532.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-fd89649c3bd1f3bbcf0e.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-02271850bce2467e6a46.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-99ca93da94655e0bb8f3.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-b3e7f912ac0520d301fa.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-c39c9dd8099115bf7dc7.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-e3bdcbe6f985fbb10efe.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-493a6bd0492925a00feb.png",
+      "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/mechanism-images/mechanism-409c41553def65c27afc.png"
+    ],
+    "errors": {}
+  },
+  "composition_images": {
+    "enabled": false,
+    "model": "disabled",
+    "generated": 0,
+    "cached": 0,
+    "failed": 0,
+    "images": [],
+    "errors": {},
+    "edited": 0,
+    "fallbacks": 0,
+    "modes": {},
+    "transports": {}
+  },
+  "card_visuals": {
+    "complete_items": 10,
+    "orchestrated_items": 0,
+    "requested_items": 10
+  },
+  "cover_image": {
+    "enabled": true,
+    "model": "gpt-image-2",
+    "generated": 0,
+    "cached": 1,
+    "failed": 0,
+    "image_path": "/app/output/game-inspiration-radar-2026-08-19-run-20260819T011909Z-bb0d9682/cover-art/cover-2c908ce9217a6ac70d82.png",
+    "prompt": "Use case: stylized-concept\nAsset type: text-free portrait master artwork for a daily game-inspiration cover\nPrimary request: act as the visual director. Read the daily signals below, choose the strongest shared theme or most provocative tension, then invent one beautiful XR fantasy world that expresses it indirectly. Do not make a collage of every story and do not illustrate the wording literally.\nEditorial context: 2026-08-19; 226 source materials; variation key d34b23225e.\nDaily signals:\n01. 修道院的多重用途 | event: 1136年，十二名寻求隔离与严格修行的西多会修士在德国埃尔特维勒附近建立埃伯巴赫修道院。修道院逐渐形成由回廊、拱顶大厅、巨型无柱谷仓和酒窖组成的建筑群，既服务于宗教生活，也承担粮食储存与葡萄酒生产；其葡萄园和酒窖延续了近九个世纪的莱茵高雷司令传统。1986年，石质走廊、俗人餐厅和修士寝室又被电影《玫瑰之名》用来塑造中世纪修道院。如今，前修士餐厅改为餐厅，游... | relationship: 埃伯巴赫修道院最有价值的启示，不是建筑可以被反复利用，而是稳定的空间会积累彼此冲突的意义。隔离修行、粮酒储存、电影取景与公共餐饮共享同一建筑骨架；墙体和路径大体延续，人在其中追求的目标、获得的权限以及对空间的理解却不断变化。由此产生的体验并非探索更多地点，而是发现自己熟悉的地点已经不能再按旧经验解释。 这提示设计者，世界的变化未必需要重建地形，也可以通过用...\n02. 28席微型影院的惊喜放映 | event: 在美国俄勒冈州本德历史街区，BendFilm运营的Tin Pan Theater把艺术影院压缩进一间仅有28个红丝绒座椅的小厅，常规放映独立电影和邪典经典，并在厅内供应自制爆米花、糖果、汽水及本地酒饮。影院还举办主题餐食配惊喜影片的系列活动：观众事先只知道类型与菜单，例如边吃意大利面边看一部未公开片名的老西部片，或用中式晚餐搭配神秘武侠片。小规模座席、复古... | relationship: 这类放映把观众的目标从“看一部好电影”改成了在未知中完成一次共同赴约。餐食给出可预期的入口，片名保密则保留真正的悬念；观众购买的不是一个确定内容，而是接受一套逐步揭晓的时间结构。揭晓之后，惊喜也不再只是个人发现，而会立刻成为同桌、同厅观众共享的反应与记忆。 28席的尺度进一步改变了观看的反馈：每个人的注意、笑声和惊讶都更容易被感知，放映因此不只是内容播放，...\n03. 微型喷射器 | event: 一名开发者正在设计一款强调物理互动与移动的5对5英雄射击游戏。每张地图的关键目标区都会改变重力，可能转换重力方向、设置多个引力点，或完全取消重力。失重时，玩家无法沿用奔跑、滑行和冲锋等常规动作，仅靠后坐力与碰撞也难以稳定移动。为解决这一问题，作者加入可向任意方向轻推角色的微型喷射器，随后又允许它在正常重力区使用，使其能够增强冲刺、滑行、冲锋等通用动作，并与... | relationship: 微型喷射器最初只是对失重区移动缺口的补偿：当奔跑、滑行和冲锋失效，玩家需要一种不依赖地面的微弱推力来恢复方向控制。真正值得注意的是，它没有被限制在这个特殊场景，而是被带回正常重力区，与原有动作叠加。于是，补偿机制变成了表达机制：同一种推力在失重时保障基本行动，在有重力时却用于调整速度、轨迹和动作衔接。 这种转变让重力差异不再只是切换两套移动规则。玩家在特殊...\n04. 被忽视的顶面 | event: ArchDaily 作者 Kiana Buchberger 在文章中重新审视建筑里的天花板。作为室内面积最大的连续表面之一，它通常只被当作遮蔽结构和管线的背景，建筑身份则更多由立面、材料、结构与家具承担。文章把视线转向这片少被首先注意的平面，指出天花板会持续影响声音传播、光线反射和室内空气流动，并能在同一表面上整合声学、通风、气候控制与空间表达。由此，天花... | relationship: 天花板揭示了一种容易被忽略的体验结构：最少被注视的部分可以拥有最持续的支配力。人未必主动观察它，却始终通过声音的传播、光线的反射和空气的流动承受它的影响。由此，空间感并不只来自眼前醒目的物体，也来自一个退居背景、同时调节多种感受的连续表面。 这对游戏设计的价值在于，玩家不必先看见规则载体，才能察觉规则正在作用。一个环境系统可以先以回声、明暗或流动变化留下彼...\n05. 水陆之间的生活 | event: 摄影师埃里克·克鲁格拍摄了荷兰洛斯德雷赫特湖区的日常景观。这里的地貌由数百年的泥炭开采塑造，水道、湖面与狭长陆地交错分布。住宅并不只是建在水边：房屋、花园、露台、小路和船只分别向陆地与水面延伸，共同组成居住环境。航道因此既是自然边界，也是通行基础设施；人们的聚居、移动和生活设施都围绕这种水陆交界展开，陆地与水域很难被清楚分开。 | relationship: 洛斯德雷赫特揭示的关键并非水陆交错本身，而是住宅、花园、小路与船只共同接入两套空间关系：陆地承载停留与相邻，水道承担通行与连接。人在这里追求的不是跨越边界，而是持续占据一个能同时调用两侧可能性的位置。于是，边界从阻碍变成了能力的来源。 这会改变游戏空间中“位置”的含义：地点的价值不只取决于它离目标多远，还取决于它允许玩家以哪些方式进入、离开并影响周围。水陆...\n06. 把最后一餐留下来 | event: 艺术家 Julie Green 用 22 年持续记录美国死刑犯在死刑执行前提出的最后餐食，并将披萨、龙虾、派、肯德基纸盒等具体选择绘制到二手陶瓷盘上。作品以蓝色矿物颜料描绘食物与文字，再经窑烧固定；盘面不写个人姓名，只标注用餐日期和执行所在州。由此，数百份原本属于监狱制度的临终记录，被累积为一组可观看、可对照的纪念性档案，也让食物选择显露出地域、族群与经济... | relationship: 在一个几乎剥夺全部行动可能的制度里，最后一餐是一条极窄的表达通道。披萨、龙虾或纸盒快餐本身并不重要，重要的是终局让这些普通选择无法再被后续行为修正：偏好因此成为遗留痕迹。它揭示了一种有力的体验结构：当未来被封闭，微小选择会承载完整人格。选择的意义并不只来自选项价值，也来自玩家还剩多少机会继续定义自己。 作品隐去姓名，只留下餐食、日期与州，使观看者先从细节推...\nCreative freedom: independently choose the world, dominant motif, viewpoint, scale, weather, era, light or dark atmosphere, and degree of archival collage. A pale field-notes mood, a luminous XR dream, a dark mythic panorama, or another coherent interpretation are all valid. Surprise is welcome when it remains beautiful.\nVisual DNA, not a rigid recipe: authored painterly worldbuilding with tactile paper, pigment, ink, or weathered print character; immense spatial depth; a human trace may appear for scale; warm ivory paper, charcoal ink, mineral blue, and weathered yellow may recur but the image may choose its own dominant climate.\nComposition/framing: portrait 2:3. Build a continuous world rather than framed panels. Let landscape, architecture, cloud, or mist extend upward naturally. The upper third will blend into a paper-colored typography layer, so keep its tonal rhythm elegant without forcing empty space. Preserve a strong readable world in the middle and lower half.\nConstraints: image only. No words, letters, numbers, logos, watermarks, UI, HUD, captions, interface icons, glowing marker dots, coordinate ticks, or explanatory diagrams.\nAvoid: generic neon sci-fi, glossy game-key-art cliches, direct headset imagery, split-screen storytelling, and arbitrary decorative linework.",
+    "error": null
+  }
+}

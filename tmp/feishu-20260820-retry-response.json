@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "run_id": "run-20260820T052612Z-e08331d2",
+  "stage": "feishu",
+  "delivery": {
+    "chat_id": "oc_01c178a36d4e9313064acbea0124a1e2",
+    "card_count": 22,
+    "image_message_ids": [
+      "om_x100b675ea65394a8c3166739a1666b6",
+      "om_x100b675ea61f54b0c4cd847364033ce",
+      "om_x100b675ea70fe0a8de9e6d2a7bd8efa",
+      "om_x100b675ea48fd0a8c213e7811847cca",
+      "om_x100b675ea59690a8c4fd22cf126e1ff",
+      "om_x100b675ea50594acc3415fe6642c209",
+      "om_x100b675ea23dfca4c2a44eefe6636fd",
+      "om_x100b675ea39498a0df35846817ae3f5",
+      "om_x100b675ea0f88ca4df63130b267b32c",
+      "om_x100b675ea06ff4a4de3d61c5f4e28fa",
+      "om_x100b675ea16db8bcddba88247c7a55f",
+      "om_x100b675ebed858b0c4faccf9a1aed6a",
+      "om_x100b675ebfc178b0c345ea8ae1bf42b",
+      "om_x100b675ebf61c4a0c316a40c565851a",
+      "om_x100b675ebc0dbd34c3ad0164da79180",
+      "om_x100b675ebdead4a8c24ab9a7cc5ecab",
+      "om_x100b675ebad2c4a4c253afd50dc1fbf",
+      "om_x100b675eba5980acc2f32bd6786df47",
+      "om_x100b675ebb4964acc293d5ab58c2422",
+      "om_x100b675eb8de9cecc2b3e1d70360899",
+      "om_x100b675eb9e46ca8c43e1528d9e7bbd",
+      "om_x100b675eb96084a0c424c735fa0188a"
+    ],
+    "file_message_id": "om_x100b675eb93a48b4c24df8dd0cd1847"
+  }
+}
