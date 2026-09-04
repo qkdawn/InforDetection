@@ -17,6 +17,35 @@ Horizon 面向游戏设计师、策划、XR 创作者和世界观研究者。它
 
 > **一眼看懂**：采集与筛选 → 三段推理 Agent → 两段视觉合成 → 22 张报告卡片 → 飞书发布
 
+## 先看结果
+
+最新一轮真实报告的创意卡片：
+
+<div align="center">
+  <img src="./docs/assets/horizon-report-card.png" alt="Horizon 游戏创意报告卡片示例" width="420">
+</div>
+
+完整产出会依次生成封面、目录与创意卡片：
+
+<div align="center">
+  <img src="./docs/assets/horizon-demo.gif" alt="Horizon 报告产出预览：封面、目录、创意卡片" width="360">
+</div>
+
+`190 个来源 → 3 段 Agent 推理 → 2 段视觉合成 → 22 张中文卡片 → 飞书`
+
+## 5 分钟快速开始
+
+需要 Docker Desktop 和一个可用的模型 API。复制下面的命令即可启动本地服务：
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item Horizon\.env.example Horizon\.env
+docker compose up -d
+Invoke-RestMethod http://localhost:8090/healthz
+```
+
+服务启动后，打开 `http://localhost:5678` 导入 `n8n/workflows/game-tech-daily.json`，手动执行一次日更流程。完整配置说明见[快速开始](#快速开始)。
+
 ## 工作流
 
 ### 1. 信息采集与筛选
