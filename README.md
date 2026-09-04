@@ -2,6 +2,7 @@
   <h1>Horizon · 游戏创意雷达</h1>
   <p>从 190 个信息源，到 22 张可读、可复核、可转发的创意报告卡片。</p>
   <p>
+    <a href="./README.en.md">English</a> ·
     <a href="#工作流">工作流</a> ·
     <a href="#快速开始">快速开始</a> ·
     <a href="#输出">输出</a> ·
@@ -112,10 +113,10 @@ Invoke-RestMethod http://localhost:8090/healthz
 
 - Docker Desktop 与 Docker Compose
 - PowerShell 7（运行本地辅助脚本时）
-- 至少一个可用的 AI 模型 API
-- 可选：X/Twitter、Reddit 和飞书应用凭据
+- 至少一个可用的 AI 模型 API（OpenAI、Anthropic、Gemini、DeepSeek 等）
+- X/Twitter、Reddit 和飞书凭据均可在第一次验证后再配置
 
-### 1. 配置环境变量
+### 1. 最小配置
 
 ```powershell
 cd F:\InforDetection
@@ -123,7 +124,24 @@ Copy-Item .env.example .env
 Copy-Item Horizon\.env.example Horizon\.env
 ```
 
-按需填写 `.env` 与 `Horizon/.env`。密钥只应保存在本地 `.env`，不要提交到版本库。飞书发布需要：
+在 `Horizon/.env` 中至少填一个模型密钥，并让 `Horizon/data/config.json` 的 `ai.api_key_env` 指向同一个变量：
+
+```text
+OPENAI_API_KEY=your-key
+```
+
+必须配置：
+
+- 一个 AI API 密钥，以及 `Horizon/data/config.json` 中对应的 `ai.api_key_env`。
+
+第一次运行可以留空：
+
+- `TWITTER_AUTH_TOKEN`、`APIFY_TOKEN`：不抓取 X 时可留空。
+- `REDDIT_CLIENT_ID`、`REDDIT_CLIENT_SECRET`：公开 Reddit RSS 可先直接使用。
+- `FEISHU_APP_ID`、`FEISHU_APP_SECRET`、`FEISHU_CHAT_ID`：不需要飞书发布时可留空。
+- `HORIZON_IMAGE_GENERATION_ENABLED`：图片生成是可选增强，设为 `false` 仍会生成稳定的文字卡片。
+
+密钥只应保存在本地 `.env` 和 `Horizon/.env`，不要提交到版本库。启用飞书发布时再填写：
 
 ```text
 FEISHU_APP_ID=
@@ -138,21 +156,38 @@ Horizon/data/config.json
 Horizon/.env
 ```
 
-### 2. 启动完整服务
+### 2. 启动服务
 
 ```powershell
 cd F:\InforDetection
 docker compose up -d
 ```
 
-检查服务状态：
+检查服务是否就绪：
 
 ```powershell
 docker compose ps
 Invoke-RestMethod http://localhost:8090/healthz
 ```
 
-### 3. 导入 n8n 工作流
+返回 `ok` 或 HTTP `200` 后再继续下一步。
+
+### 3. 跑一次测试任务
+
+先用 1 小时窗口验证抓取、模型和报告渲染，不会改变定时任务：
+
+```powershell
+docker compose --profile manual run --rm horizon --hours 1
+```
+
+成功标准：命令正常退出，并在 `output/game-inspiration-radar-*/` 下看到 `report.md` 和 `cards/`。也可以查看：
+
+```powershell
+docker compose logs --tail 100 horizon-api
+Get-ChildItem output -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+```
+
+### 4. 导入 n8n 工作流
 
 打开 `http://localhost:5678`，导入：
 
@@ -162,7 +197,7 @@ n8n/workflows/game-tech-daily.json
 
 工作流包含日更、周更和储备池入口，并依次调用 Horizon 的分阶段 API。建议先手动执行一次，确认模型、来源、渲染和输出目录均可用，再开启定时任务。
 
-### 4. 直接运行 Horizon
+### 5. 直接运行 Horizon
 
 无需 n8n 时，可直接执行一次 24 小时窗口任务：
 
@@ -175,6 +210,16 @@ F:\InforDetection\run-horizon.ps1 -Hours 24
 ```powershell
 docker compose --profile manual run --rm horizon --hours 24
 ```
+
+### 常见报错
+
+| 现象 | 处理 |
+| --- | --- |
+| `horizon-api` 不健康 | `docker compose logs horizon-api`；检查 `Horizon/.env` 的模型密钥和 `config.json` 的 `ai.api_key_env` 是否一致。 |
+| RSSHub 不健康或抓取超时 | `docker compose logs rsshub rsshub-redis`；先确认 `Invoke-RestMethod http://localhost:1200/healthz`，必要时重启 `docker compose restart rsshub`。 |
+| 没有 X/Twitter 内容 | 配置有效的 `TWITTER_AUTH_TOKEN`；不需要 X 时，在来源配置中关闭 Twitter，其他 RSS 来源仍可运行。 |
+| 图片生成失败 | 将 `HORIZON_IMAGE_GENERATION_ENABLED=false`，先使用文字卡片完成链路验证。 |
+| 飞书发送失败 | 检查三个 `FEISHU_*` 变量和机器人权限；只想本地生成时可暂时不配置飞书。 |
 
 ## 输出
 
